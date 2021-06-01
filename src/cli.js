@@ -25,9 +25,9 @@ type ProgramOptions = {|
 
 const PRETTIER_OPTIONS: PrettierOptions = {
     parser: 'flow',
-    semi: false,
+    semi: true,
     printWidth: 90,
-    tabWidth: 4,
+    tabWidth: 2,
     singleQuote: true,
     trailingComma: 'all',
 };
