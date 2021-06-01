@@ -14,7 +14,7 @@
     },
     "main": "./dist/index.js",
     "bin": {
-        "generate-ast": "./dist/cli.js"
+        "generate-ast": "./cli.js"
     },
     "scripts": {
         "actually-prepublish": "echo \"\\n\\nPlease run \\`bin/publish.sh <options>\\` instead.\\n\\n\" && exit 2",
