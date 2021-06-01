@@ -18,6 +18,11 @@ build_code() {
     babel -d "$DIST" "$SRC" --ignore '**/__tests__/**'
 }
 
+make_executable() {
+    ( echo "#!/usr/bin/env node"; cat "$DIST/cli.js" ) | sponge "$DIST/cli.js"
+    chmod +x "$DIST"/cli.js
+}
+
 copy_typescript_defs() {
     mkdir -p "$DIST_TYPES"
     find "$SRC" -iname '*.d.ts' -a '!' -iname '*-tests.d.ts' -exec cp -v '{}' "$DIST_TYPES" ';'
@@ -61,6 +66,7 @@ build_package_json() {
 build() {
     clean
     build_code
+    make_executable
     copy_typescript_defs
     copy_flow_defs
     copy_metadata
