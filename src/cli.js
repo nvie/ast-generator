@@ -493,7 +493,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
 
   output.push('');
   output.push('// Node groups');
-  output.push(`isNode,`);
+  output.push('isNode,');
   for (const nodeGroup of grammar.nodeGroups) {
     output.push(`is${nodeGroup.name},`);
   }
