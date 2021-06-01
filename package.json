@@ -1,6 +1,6 @@
 {
     "name": "ast-generator",
-    "version": "0.0.1",
+    "version": "0.0.2",
     "description": "Helper to generate a TypeScript or JavaScript module for an arbitrary AST definition from a specification.",
     "license": "MIT",
     "repository": {
@@ -14,7 +14,7 @@
     },
     "main": "./dist/index.js",
     "bin": {
-        "generate-ast": "dist/cli.js"
+        "generate-ast": "./dist/cli.js"
     },
     "scripts": {
         "actually-prepublish": "echo \"\\n\\nPlease run \\`bin/publish.sh <options>\\` instead.\\n\\n\" && exit 2",
@@ -35,7 +35,7 @@
         "watch": "jest --watch"
     },
     "files": [
-        "dist/"
+        "./dist/"
     ],
     "keywords": [
         "ast",
@@ -49,6 +49,7 @@
         "flow"
     ],
     "dependencies": {
+        "chalk": "^4.1.1",
         "commander": "^7.2.0",
         "invariant": "^2.2.4",
         "prettier": "^2.3.0"
