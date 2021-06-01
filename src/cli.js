@@ -7,11 +7,12 @@
  * project's needs.
  */
 
+import prettier, { type Options as PrettierOptions } from 'prettier';
+
+import chalk from 'chalk';
+import commander from 'commander';
 import fs from 'fs';
 import invariant from 'invariant';
-import chalk from 'chalk';
-import prettier, { type Options as PrettierOptions } from 'prettier';
-import commander from 'commander';
 
 type ProgramOptions = {|
     inputFile: string,
