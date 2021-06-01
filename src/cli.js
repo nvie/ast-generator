@@ -583,9 +583,11 @@ function run() {
 
     const program = commander
         // $FlowFixMe[incompatible-call] - ugh commander
-        .name('mysql-simulate')
+        .name('generate-ast')
         .usage('[options] <input> [<output>]')
-        .description('XXXXXXXXXXXXXXX')
+        .description(
+            'Generates a TypeScript or JavaScript module from an AST specification.'
+        )
         .option('--discriminator <identifier>', 'Field name to use as discriminator')
         .option(
             '--discriminator-transform <transform>',
