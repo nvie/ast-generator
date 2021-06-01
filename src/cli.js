@@ -265,15 +265,22 @@ function generateTypeCheckCondition(
     expected: NodeRef,
     actualValue: string,
     options: ProgramOptions
-): string {
+): string | null {
     let conditions = [];
 
     if (expected.ref === 'Optional') {
+        const baseCondition = generateTypeCheckCondition(
+            grammar,
+            expected.of,
+            actualValue,
+            options
+        );
+        if (!baseCondition) {
+            return null;
+        }
+
         conditions.push(
-            [
-                `${actualValue} === null`,
-                generateTypeCheckCondition(grammar, expected.of, actualValue, options),
-            ]
+            [`${actualValue} === null`, baseCondition]
                 .filter(Boolean)
                 .map((s) => `(${s})`)
                 .join(' || ')
@@ -283,14 +290,15 @@ function generateTypeCheckCondition(
         if (expected.min > 0) {
             conditions.push(`${actualValue}.length > 0`);
         }
-        conditions.push(
-            `${actualValue}.every(item => ${generateTypeCheckCondition(
-                grammar,
-                expected.of,
-                'item',
-                options
-            )})`
+        const baseCondition = generateTypeCheckCondition(
+            grammar,
+            expected.of,
+            'item',
+            options
         );
+        if (baseCondition) {
+            conditions.push(`${actualValue}.every(item => ${baseCondition})`);
+        }
     } else if (expected.ref === 'NodeGroup') {
         conditions.push(`is${expected.name}(${actualValue})`);
     } else if (TYPEOF_CHECKS.has(expected.name)) {
@@ -301,9 +309,11 @@ function generateTypeCheckCondition(
                 JSON.stringify(expected.name)
             )}`
         );
+    } else {
+        return null;
     }
 
-    return conditions.map((c) => `(${c})`).join(' && ');
+    return conditions.map((c) => `(${c})`).join(' && ') || null;
 }
 
 function splitOffPreamble(src: string): [string | null, string] {
@@ -507,14 +517,18 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
 
         const argChecks = node.fields
             .map((field) => {
-                return `invariant(${generateTypeCheckCondition(
+                const condition = generateTypeCheckCondition(
                     grammar,
                     field.ref,
                     field.name,
                     options
-                )}, \`Invalid value for "${field.name}" arg in "${
-                    node.name
-                }" call.\\nExpected: ${serializeRef(
+                );
+                if (!condition) {
+                    return null;
+                }
+                return `invariant(${condition}, \`Invalid value for "${
+                    field.name
+                }" arg in "${node.name}" call.\\nExpected: ${serializeRef(
                     field.ref
                 )}\\nGot:      \${JSON.stringify(${field.name})}\`)\n`;
             })
