@@ -165,7 +165,13 @@ function parseMultiNodeRef(spec: string): MultiNodeRef {
 function parseSpec(spec: string): FieldValue {
     try {
         const value = JSON.parse(spec);
-        return { ref: 'Constant', value };
+        if (
+            typeof value === 'string' ||
+            typeof value === 'number' ||
+            typeof value === 'boolean'
+        ) {
+            return { ref: 'Constant', value };
+        }
     } catch {
         // Ignore - not a constant
     }
