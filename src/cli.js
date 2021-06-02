@@ -31,7 +31,7 @@ const PRETTIER_OPTIONS: PrettierOptions = {
     trailingComma: 'all',
 };
 
-const DEFAULT_BUILTINS = ['boolean', 'number', 'string'];
+const DEFAULT_BUILTINS = ['boolean', 'number', 'string', 'mixed'];
 const TYPEOF_CHECKS = new Set(['boolean', 'number', 'string']);
 
 // e.g. "SomeNode" or "@SomeGroup"
