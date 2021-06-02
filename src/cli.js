@@ -68,9 +68,13 @@ type NodeGroup = {|
     members: Array<NodeRef>,
 |};
 
+type Constant = {| ref: 'Constant', value: string | number | boolean |};
+
+type FieldValue = NodeRef | Constant;
+
 type Field = {|
     name: string,
-    ref: NodeRef,
+    ref: FieldValue,
 |};
 
 // e.g. { pattern: '@AssignmentPattern', expr: '@Expr' }
@@ -158,7 +162,14 @@ function parseMultiNodeRef(spec: string): MultiNodeRef {
     }
 }
 
-function parseSpec(spec: string): NodeRef {
+function parseSpec(spec: string): FieldValue {
+    try {
+        const value = JSON.parse(spec);
+        return { ref: 'Constant', value };
+    } catch {
+        // Ignore - not a constant
+    }
+
     if (spec.endsWith('?')) {
         return {
             ref: 'Optional',
@@ -203,8 +214,10 @@ function getBareRefTarget(ref: NodeRef): 'Node' | 'NodeGroup' {
         : ref.ref;
 }
 
-function getTypeScriptType(ref: NodeRef): string {
-    return ref.ref === 'Optional'
+function getTypeScriptType(ref: FieldValue): string {
+    return ref.ref === 'Constant'
+        ? JSON.stringify(ref.value)
+        : ref.ref === 'Optional'
         ? getTypeScriptType(ref.of) + ' | null'
         : ref.ref === 'List'
         ? 'Array<' + getTypeScriptType(ref.of) + '>'
@@ -234,14 +247,19 @@ function validate(grammar: Grammar, options: ProgramOptions) {
                 !field.name.startsWith('_'),
                 `Illegal field name: "${node.name}.${field.name}" (fields starting with "_" are reserved)`
             );
-            const bare = getBareRef(field.ref);
-            referenced.add(bare);
-            invariant(
-                options.isBuiltIn(bare) ||
-                    !!grammar.nodeGroupsByName[bare] ||
-                    !!get(grammar.nodesByName, bare),
-                `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`
-            );
+
+            if (field.ref.ref === 'Constant') {
+                continue;
+            } else {
+                const bare = getBareRef(field.ref);
+                referenced.add(bare);
+                invariant(
+                    options.isBuiltIn(bare) ||
+                        !!grammar.nodeGroupsByName[bare] ||
+                        !!get(grammar.nodesByName, bare),
+                    `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`
+                );
+            }
         }
     }
 
@@ -506,9 +524,14 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
 
         const argChecks = node.fields
             .map((field) => {
+                const { ref } = field;
+                if (ref.ref === 'Constant') {
+                    return null;
+                }
+
                 const condition = generateTypeCheckCondition(
                     grammar,
-                    field.ref,
+                    ref,
                     field.name,
                     options
                 );
@@ -518,7 +541,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
                 return `invariant(${condition}, \`Invalid value for "${
                     field.name
                 }" arg in "${node.name}" call.\\nExpected: ${serializeRef(
-                    field.ref
+                    ref
                 )}\\nGot:      \${JSON.stringify(${field.name})}\`)\n`;
             })
             .filter(Boolean);
@@ -526,20 +549,34 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
         output.push(
             `
             ${node.name}(${[
-                ...node.fields.map((field) => {
-                    let key = field.name;
-                    const type = getTypeScriptType(field.ref);
-                    return optionals.has(field.name)
-                        ? `${key}: ${type} = ${
-                              field.ref.ref === 'Optional' ? 'null' : '[]'
-                          }`
-                        : `${key}: ${type}`;
-                }),
+                ...node.fields
+                    .map((field) => {
+                        let key = field.name;
+                        if (field.ref.ref === 'Constant') {
+                            return null;
+                        }
+                        const type = getTypeScriptType(field.ref);
+                        return optionals.has(field.name)
+                            ? `${key}: ${type} = ${
+                                  field.ref.ref === 'Optional' ? 'null' : '[]'
+                              }`
+                            : `${key}: ${type}`;
+                    })
+                    .filter(Boolean),
             ].join(', ')}): ${node.name} {
                 ${argChecks.join('\n')}
                 return {
                     ${discriminator}: ${JSON.stringify(node.name)},
-                    ${node.fields.map((field) => field.name).join(', ')}
+                    ${node.fields
+                        .map((field) => {
+                            const { ref } = field;
+                            if (ref.ref === 'Constant') {
+                                return `${field.name}: ${JSON.stringify(ref.value)}`;
+                            } else {
+                                return field.name;
+                            }
+                        })
+                        .join(', ')}
                 }
             },
             `
