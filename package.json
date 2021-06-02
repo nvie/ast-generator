@@ -1,6 +1,6 @@
 {
     "name": "ast-generator",
-    "version": "0.0.4",
+    "version": "0.0.5",
     "description": "Helper to generate a TypeScript or JavaScript module for an arbitrary AST definition from a specification.",
     "license": "MIT",
     "repository": {
