@@ -18,7 +18,6 @@ type ProgramOptions = {|
     inputFile: string,
     outputFile: string,
     discriminator: string, // default: "_kind"
-    transformDiscriminator: (string) => string,
     isBuiltIn: (string) => boolean,
     verbose: boolean,
 |};
@@ -305,9 +304,7 @@ function generateTypeCheckCondition(
         conditions.push(`typeof ${actualValue} === ${JSON.stringify(expected.name)}`);
     } else if (!options.isBuiltIn(expected.name)) {
         conditions.push(
-            `${actualValue}.${options.discriminator} === ${options.transformDiscriminator(
-                JSON.stringify(expected.name)
-            )}`
+            `${actualValue}.${options.discriminator} === ${JSON.stringify(expected.name)}`
         );
     } else {
         return null;
@@ -429,7 +426,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
     // Will throw in case of errors
     validate(grammar, options);
 
-    const { discriminator, transformDiscriminator } = options;
+    const { discriminator } = options;
 
     const output = [
         '// @flow strict',
@@ -452,12 +449,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
             (ref) => getBareRefTarget(ref) === 'Node'
         );
         const conditions = subNodes
-            .map(
-                (ref) =>
-                    `node.${discriminator} === ${transformDiscriminator(
-                        JSON.stringify(getBareRef(ref))
-                    )}`
-            )
+            .map((ref) => `node.${discriminator} === ${JSON.stringify(getBareRef(ref))}`)
             .concat(subGroups.map((ref) => `is${getBareRef(ref)}(node)`));
         output.push(`
           function is${nodeGroup.name}(node: Node): boolean %checks {
@@ -482,10 +474,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
             return (
                 ${grammar.nodes
                     .map(
-                        (node) =>
-                            `node.${discriminator} === ${transformDiscriminator(
-                                JSON.stringify(node.name)
-                            )}`
+                        (node) => `node.${discriminator} === ${JSON.stringify(node.name)}`
                     )
                     .join(' || ')}
             )
@@ -495,7 +484,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
     for (const node of grammar.nodes) {
         output.push(`
             export type ${node.name} = {|
-                ${discriminator}: ${transformDiscriminator(JSON.stringify(node.name))},
+                ${discriminator}: ${JSON.stringify(node.name)},
                 ${node.fields
                     .map((field) => `${field.name}: ${getTypeScriptType(field.ref)}`)
                     .join(', ')}
@@ -549,9 +538,7 @@ function generateCode(grammar: Grammar, options: ProgramOptions): string {
             ].join(', ')}): ${node.name} {
                 ${argChecks.join('\n')}
                 return {
-                    ${discriminator}: ${transformDiscriminator(
-                JSON.stringify(node.name)
-            )},
+                    ${discriminator}: ${JSON.stringify(node.name)},
                     ${node.fields.map((field) => field.name).join(', ')}
                 }
             },
@@ -603,10 +590,6 @@ function run() {
             'Generates a TypeScript or JavaScript module from an AST specification.'
         )
         .option('--discriminator <identifier>', 'Field name to use as discriminator')
-        .option(
-            '--discriminator-transform <transform>',
-            'Transformation to apply to discriminating value (options: lower or upper)'
-        )
         .option('--builtin <name>', 'Identifier to treat as a built-in', collect, [])
         .option('-v, --verbose', 'Be verbose')
         .parse(process.argv);
@@ -619,21 +602,6 @@ function run() {
         const outputFile =
             program.args[1] || program.args[0].replace(/.grammar$/, '') + '.js';
 
-        // eslint-disable-next-line no-inner-declarations
-        function transformDiscriminator(value: string): string {
-            if (opts.discriminatorTransform === undefined) {
-                return value;
-            } else if (opts.discriminatorTransform === 'lower') {
-                return value.toLowerCase();
-            } else if (opts.discriminatorTransform === 'upper') {
-                return value.toUpperCase();
-            } else {
-                throw new Error(
-                    'Unknown --discriminator-transform value. Should be upper or lower'
-                );
-            }
-        }
-
         const builtIns = new Set([...DEFAULT_BUILTINS, ...opts.builtin]);
 
         // eslint-disable-next-line no-inner-declarations
@@ -645,7 +613,6 @@ function run() {
             inputFile,
             outputFile,
             discriminator: opts.discriminator ?? '_kind',
-            transformDiscriminator,
             isBuiltIn,
             verbose: !!opts.verbose,
         };
