@@ -100,6 +100,12 @@ function get<T>(lut: LUT<T>, key: string): T | void {
     return lut[key];
 }
 
+function splitFirst(value: string): [string, string] {
+    const first = value.split(/\s+/)[0];
+    const rest = value.substring(first.length).trimLeft();
+    return [first, rest];
+}
+
 function takeWhile<T>(items: Array<T>, predicate: (item: T) => boolean): Array<T> {
     const result = [];
     for (const item of items) {
@@ -417,7 +423,7 @@ function parseGrammarDefinition(inputFile: string): Grammar {
             invariant(currGroup, 'Expect a curr node group');
             currGroup.push(parseBaseNodeRef(group));
         } else {
-            const [name, spec] = line.split(/\s+/);
+            const [name, spec] = splitFirst(line);
             invariant(currNode, 'Expect a curr node');
             currNode[name] = { name, ref: parseSpec(spec) };
         }
