@@ -52,7 +52,7 @@
         "chalk": "^4.1.1",
         "commander": "^7.2.0",
         "invariant": "^2.2.4",
-        "prettier": "^2.3.2"
+        "prettier": "^2.5.1"
     },
     "devDependencies": {
         "@babel/cli": "^7.17.0",
