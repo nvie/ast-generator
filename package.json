@@ -60,7 +60,7 @@
         "@babel/preset-env": "^7.16.11",
         "@babel/preset-flow": "^7.16.7",
         "babel-eslint": "^10.1.0",
-        "dtslint": "^4.1.2",
+        "dtslint": "^4.2.1",
         "eslint": "^7.31.0",
         "eslint-plugin-flowtype": "^5.8.0",
         "flow-bin": "^0.155.1",
