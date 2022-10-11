@@ -49,7 +49,7 @@
         "flow"
     ],
     "dependencies": {
-        "chalk": "^4.1.1",
+        "chalk": "^5.1.0",
         "commander": "^7.2.0",
         "invariant": "^2.2.4",
         "prettier": "^2.5.1"
