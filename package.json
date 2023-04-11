@@ -12,7 +12,7 @@
     "build": "tsup",
     "lint": "eslint src/",
     "format": "eslint --fix src/ ; prettier --write src/",
-    "test": "jest --verbose --no-coverage"
+    "test": "vitest run --coverage"
   },
   "author": "Vincent Driessen",
   "homepage": "https://github.com/nvie/ast-generator#readme",
@@ -39,7 +39,8 @@
   },
   "sideEffects": false,
   "devDependencies": {
-    "@types/jest": "^29.5.0",
-    "@types/prettier": "^2.7.2"
+    "@types/prettier": "^2.7.2",
+    "@vitest/coverage-istanbul": "^0.30.0",
+    "vitest": "^0.30.0"
   }
 }
