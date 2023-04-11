@@ -1,0 +1,658 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`parsing grammars > parses a grammar 1`] = `
+{
+  "nodes": [
+    {
+      "fields": [
+        {
+          "name": "x0:",
+          "ref": {
+            "name": "string",
+            "ref": "Raw",
+          },
+        },
+        {
+          "name": "x1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "x2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "x3:",
+          "ref": {
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+        {
+          "name": "y0:",
+          "ref": {
+            "name": "Xyz",
+            "ref": "NodeUnion",
+          },
+        },
+        {
+          "name": "y1:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "y2:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "y3:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        {
+          "name": "y4:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        {
+          "name": "z0:",
+          "ref": {
+            "name": "Pqr",
+            "ref": "Node",
+          },
+        },
+        {
+          "name": "z1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "z2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "z3:",
+          "ref": {
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "Optional",
+          },
+        },
+      ],
+      "fieldsByName": {
+        "x0:": {
+          "name": "x0:",
+          "ref": {
+            "name": "string",
+            "ref": "Raw",
+          },
+        },
+        "x1:": {
+          "name": "x1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        "x2:": {
+          "name": "x2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        "x3:": {
+          "name": "x3:",
+          "ref": {
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+        "y0:": {
+          "name": "y0:",
+          "ref": {
+            "name": "Xyz",
+            "ref": "NodeUnion",
+          },
+        },
+        "y1:": {
+          "name": "y1:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        "y2:": {
+          "name": "y2:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        "y3:": {
+          "name": "y3:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        "y4:": {
+          "name": "y4:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        "z0:": {
+          "name": "z0:",
+          "ref": {
+            "name": "Pqr",
+            "ref": "Node",
+          },
+        },
+        "z1:": {
+          "name": "z1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        "z2:": {
+          "name": "z2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        "z3:": {
+          "name": "z3:",
+          "ref": {
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "Optional",
+          },
+        },
+      },
+      "name": "Abc",
+    },
+    {
+      "fields": [
+        {
+          "name": "p:",
+          "ref": {
+            "of": {
+              "name": "number",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+      ],
+      "fieldsByName": {
+        "p:": {
+          "name": "p:",
+          "ref": {
+            "of": {
+              "name": "number",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+      },
+      "name": "Pqr",
+    },
+    {
+      "fields": [
+        {
+          "name": "s:",
+          "ref": {
+            "name": "number",
+            "ref": "Raw",
+          },
+        },
+      ],
+      "fieldsByName": {
+        "s:": {
+          "name": "s:",
+          "ref": {
+            "name": "number",
+            "ref": "Raw",
+          },
+        },
+      },
+      "name": "Stu",
+    },
+  ],
+  "nodesByName": {
+    "Abc": {
+      "fields": [
+        {
+          "name": "x0:",
+          "ref": {
+            "name": "string",
+            "ref": "Raw",
+          },
+        },
+        {
+          "name": "x1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "x2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "x3:",
+          "ref": {
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+        {
+          "name": "y0:",
+          "ref": {
+            "name": "Xyz",
+            "ref": "NodeUnion",
+          },
+        },
+        {
+          "name": "y1:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "y2:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "y3:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        {
+          "name": "y4:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        {
+          "name": "z0:",
+          "ref": {
+            "name": "Pqr",
+            "ref": "Node",
+          },
+        },
+        {
+          "name": "z1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "z2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        {
+          "name": "z3:",
+          "ref": {
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "Optional",
+          },
+        },
+      ],
+      "fieldsByName": {
+        "x0:": {
+          "name": "x0:",
+          "ref": {
+            "name": "string",
+            "ref": "Raw",
+          },
+        },
+        "x1:": {
+          "name": "x1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        "x2:": {
+          "name": "x2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "List",
+          },
+        },
+        "x3:": {
+          "name": "x3:",
+          "ref": {
+            "of": {
+              "name": "string",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+        "y0:": {
+          "name": "y0:",
+          "ref": {
+            "name": "Xyz",
+            "ref": "NodeUnion",
+          },
+        },
+        "y1:": {
+          "name": "y1:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        "y2:": {
+          "name": "y2:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "List",
+          },
+        },
+        "y3:": {
+          "name": "y3:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        "y4:": {
+          "name": "y4:",
+          "ref": {
+            "of": {
+              "name": "Xyz",
+              "ref": "NodeUnion",
+            },
+            "ref": "Optional",
+          },
+        },
+        "z0:": {
+          "name": "z0:",
+          "ref": {
+            "name": "Pqr",
+            "ref": "Node",
+          },
+        },
+        "z1:": {
+          "name": "z1:",
+          "ref": {
+            "min": 1,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        "z2:": {
+          "name": "z2:",
+          "ref": {
+            "min": 0,
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "List",
+          },
+        },
+        "z3:": {
+          "name": "z3:",
+          "ref": {
+            "of": {
+              "name": "Pqr",
+              "ref": "Node",
+            },
+            "ref": "Optional",
+          },
+        },
+      },
+      "name": "Abc",
+    },
+    "Pqr": {
+      "fields": [
+        {
+          "name": "p:",
+          "ref": {
+            "of": {
+              "name": "number",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+      ],
+      "fieldsByName": {
+        "p:": {
+          "name": "p:",
+          "ref": {
+            "of": {
+              "name": "number",
+              "ref": "Raw",
+            },
+            "ref": "Optional",
+          },
+        },
+      },
+      "name": "Pqr",
+    },
+    "Stu": {
+      "fields": [
+        {
+          "name": "s:",
+          "ref": {
+            "name": "number",
+            "ref": "Raw",
+          },
+        },
+      ],
+      "fieldsByName": {
+        "s:": {
+          "name": "s:",
+          "ref": {
+            "name": "number",
+            "ref": "Raw",
+          },
+        },
+      },
+      "name": "Stu",
+    },
+  },
+  "unions": [
+    {
+      "members": [
+        {
+          "name": "Pqr",
+          "ref": "Node",
+        },
+        {
+          "name": "Stu",
+          "ref": "Node",
+        },
+      ],
+      "name": "Xyz",
+    },
+  ],
+  "unionsByName": {
+    "Xyz": {
+      "members": [
+        {
+          "name": "Pqr",
+          "ref": "Node",
+        },
+        {
+          "name": "Stu",
+          "ref": "Node",
+        },
+      ],
+      "name": "Xyz",
+    },
+  },
+}
+`;
