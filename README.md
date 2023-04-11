@@ -1,5 +1,4 @@
-This project is forked from an old personal project from Vincent, see
-https://github.com/nvie/ast-generator.
+[![npm](https://img.shields.io/npm/v/ast-generator.svg)](https://www.npmjs.com/package/ast-generator)
+[![Build Status](https://github.com/nvie/ast-generator/workflows/test/badge.svg)](https://github.com/nvie/ast-generator/actions)
 
-It's included here as part of the monorepo to iterate on it much quicker, but
-once stable, it could be contributed back and removed from this monorepo.
+TODO: Explain the grammer format
