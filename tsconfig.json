@@ -1,10 +1,27 @@
 {
   "compilerOptions": {
-    "lib": ["es6"],
-    "baseUrl": "./src/",
-    "typeRoots": ["./src/"]
+    "noEmit": true,
+    "strict": true,
+
+    "target": "es2015",
+
+    // For all packages, let TypeScript use the following standardized way to
+    // resolve modules
+    "moduleResolution": "node",
+
+    // Settings with an effect on the generated code
+    "esModuleInterop": true, // Emit safer code for packages that use namespace/default imports
+    "stripInternal": true, // Don't emit public types for things annotated with @internal
+
+    // Use better type checking
+    "allowUnreachableCode": false, // False makes this stricter: errors instead of warns
+    "allowUnusedLabels": false, // False makes this stricter: errors instead of warns
+    "forceConsistentCasingInFileNames": true,
+    "importsNotUsedAsValues": "error",
+    "isolatedModules": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true
   },
-  "files": [
-    "index.d.ts"
-  ]
+  "include": ["bin/**/*", "src/**/*"]
 }
