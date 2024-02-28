@@ -4,10 +4,10 @@
   has to be named "Document" per se.
 - Made `_kind` and `range` fields non-enumerable.
 
-## 0.1.0
+## [0.1.0]
 
 Modernize repo, rewrite in TypeScript.
 
-## 0.0.x
+## [0.0.x]
 
 Did not keep a changelog yet.
