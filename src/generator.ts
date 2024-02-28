@@ -411,6 +411,17 @@ function generateCode(grammar: Grammar): string {
         \`Invalid value for range in "\${JSON.stringify(currentContext)}".\\nExpected: Range\\nGot: \${JSON.stringify(range)}\`
       );
     }
+
+    function asNode<N extends Node>(node: N): N {
+      return Object.defineProperties(
+        node,
+        {
+          _kind: { enumerable: false },
+          range: { enumerable: false }
+        }
+      );
+    }
+
     `,
   ];
 
@@ -509,12 +520,12 @@ function generateCode(grammar: Grammar): string {
                     ? `DEBUG && (() => { ${runtimeTypeChecks.join("\n")} })()`
                     : ""
                 }
-                return {
+                return asNode({
                     _kind: ${JSON.stringify(node.name)},
                     ${[...node.fields.map((field) => field.name), "range"].join(
                       ", "
                     )}
-                }
+                });
             }
             `);
   }
