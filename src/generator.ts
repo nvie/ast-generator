@@ -417,13 +417,7 @@ function generateCode(grammar: Grammar): string {
     }
 
     function asNode<N extends Node>(node: N): N {
-      return Object.defineProperties(
-        node,
-        {
-          _kind: { enumerable: false },
-          range: { enumerable: false }
-        }
-      );
+      return Object.defineProperty(node, 'range', { enumerable: false });
     }
 
     `,
