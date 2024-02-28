@@ -54,6 +54,8 @@ type Node = {
 type LUT<T> = { [key: string]: T };
 
 type Grammar = {
+  startNode: string;
+
   nodesByName: LUT<Node>;
   nodes: Node[]; // Sorted list of nodes
 
@@ -233,18 +235,17 @@ function validate(grammar: Grammar) {
   }
 
   // Check that all defined nodes are referenced
-  const defined = new Set(grammar.nodes.map((n) => n.name));
+  const unreferenced = new Set(grammar.nodes.map((n) => n.name));
   for (const name of referenced) {
-    defined.delete(name);
+    unreferenced.delete(name);
   }
 
-  // "Document" is the top-level node kind, which by definition won't be referenced
-  defined.delete("Document");
+  unreferenced.delete(grammar.startNode);
   invariant(
-    defined.size === 0,
-    `The following node kinds are never referenced: ${Array.from(defined).join(
-      ", "
-    )}`
+    unreferenced.size === 0,
+    `The following node kinds are never referenced: ${Array.from(
+      unreferenced
+    ).join(", ")}`
   );
 }
 
@@ -373,6 +374,9 @@ export function parseGrammarFromString(src: string): Grammar {
   }
 
   return {
+    // The first-defined node in the document is the start node
+    startNode: Object.keys(nodesByName)[0],
+
     nodesByName,
     nodes: Object.keys(nodesByName)
       .sort()

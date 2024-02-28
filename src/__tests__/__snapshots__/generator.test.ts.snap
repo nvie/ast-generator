@@ -624,6 +624,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
       "name": "Stu",
     },
   },
+  "startNode": "Abc",
   "unions": [
     {
       "members": [
