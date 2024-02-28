@@ -14,6 +14,7 @@
     "stripInternal": true, // Don't emit public types for things annotated with @internal
 
     // Use better type checking
+    "skipLibCheck": true,
     "allowUnreachableCode": false, // False makes this stricter: errors instead of warns
     "allowUnusedLabels": false, // False makes this stricter: errors instead of warns
     "forceConsistentCasingInFileNames": true,
