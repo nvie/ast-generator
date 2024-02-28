@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.0] - 2024-02-28
+
 - Made the first-defined node the start node for the grammar. It no longer
   has to be named "Document" per se.
 - Made `_kind` and `range` fields non-enumerable.
