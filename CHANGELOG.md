@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.1] - 2024-02-28
+
 - Made `_kind` enumerable again.
 
 ## [0.2.0] - 2024-02-28
