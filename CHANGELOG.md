@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+- Make `typescript` a peer dependency
+- Upgrade some (dev) dependencies
+
 ## [0.2.1] - 2024-02-28
 
 - Made `_kind` enumerable again.
