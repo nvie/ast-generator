@@ -617,6 +617,9 @@ export async function generateAST(
     );
   }
 
-  const code = prettier.format(uglyCode, { ...config, parser: "typescript" });
+  const code = await prettier.format(uglyCode, {
+    ...config,
+    parser: "typescript",
+  });
   writeFile(code, outpath);
 }
