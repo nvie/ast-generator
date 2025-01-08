@@ -33,7 +33,7 @@
     "typescript"
   ],
   "dependencies": {
-    "commander": "^10.0.0",
+    "commander": "^13.0.0",
     "prettier": "^3.4.2",
     "tiny-invariant": "^1.3.3"
   },
