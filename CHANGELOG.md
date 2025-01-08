@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.3] - 2025-01-08
+
 - Fix bug when using CLI:
   `The data argument must be of type string or an instance of Buffer, TypedArray, or DataView.`
 
