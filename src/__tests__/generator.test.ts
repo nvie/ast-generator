@@ -31,7 +31,7 @@ Pqr:
 # This is a comment
 Stu:
   s: \`number\`
-`)
+`),
     ).toMatchSnapshot();
   });
 });

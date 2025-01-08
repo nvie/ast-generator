@@ -14,7 +14,7 @@ function red(msg: string) {
 async function main() {
   const cmd = new Command("generate-ast")
     .description(
-      "Generate a TypeScript module for the AST defined in the grammar"
+      "Generate a TypeScript module for the AST defined in the grammar",
     )
     .argument("<infile>", "Source grammar (*.grammar)")
     .argument("<outfile>", "Output file (*.ts)")

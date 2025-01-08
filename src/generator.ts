@@ -168,20 +168,20 @@ function getBaseNodeRef(ref: NodeRef): BaseNodeRef {
   return ref.ref === "Optional"
     ? getBaseNodeRef(ref.of)
     : ref.ref === "List"
-    ? getBaseNodeRef(ref.of)
-    : ref;
+      ? getBaseNodeRef(ref.of)
+      : ref;
 }
 
 function getBareRef(ref: NodeRef): string {
   return ref.ref === "Optional"
     ? getBareRef(ref.of)
     : ref.ref === "List"
-    ? getBareRef(ref.of)
-    : ref.ref === "Node"
-    ? ref.name
-    : ref.ref === "NodeUnion"
-    ? ref.name
-    : ref.name;
+      ? getBareRef(ref.of)
+      : ref.ref === "Node"
+        ? ref.name
+        : ref.ref === "NodeUnion"
+          ? ref.name
+          : ref.name;
 }
 
 function getBareRefTarget(ref: NodeRef): "Node" | "NodeUnion" | "Raw" {
@@ -194,10 +194,10 @@ function getTypeScriptType(ref: NodeRef): string {
   return ref.ref === "Optional"
     ? getTypeScriptType(ref.of) + " | null"
     : ref.ref === "List"
-    ? getTypeScriptType(ref.of) + "[]"
-    : isBuiltIn(ref)
-    ? ref.name
-    : ref.name;
+      ? getTypeScriptType(ref.of) + "[]"
+      : isBuiltIn(ref)
+        ? ref.name
+        : ref.name;
 }
 
 function validate(grammar: Grammar) {
@@ -211,7 +211,7 @@ function validate(grammar: Grammar) {
       invariant(
         grammar.nodesByName[memberName] ||
           (nodeUnion.name !== memberName && !!grammar.unionsByName[memberName]),
-        `Member "${memberName}" of union "${nodeUnion.name}" is not defined in the grammar`
+        `Member "${memberName}" of union "${nodeUnion.name}" is not defined in the grammar`,
       );
     }
   }
@@ -220,7 +220,7 @@ function validate(grammar: Grammar) {
     for (const field of node.fields) {
       invariant(
         !field.name.startsWith("_"),
-        `Illegal field name: "${node.name}.${field.name}" (fields starting with "_" are reserved)`
+        `Illegal field name: "${node.name}.${field.name}" (fields starting with "_" are reserved)`,
       );
       const bare = getBareRef(field.ref);
       const base = getBaseNodeRef(field.ref);
@@ -229,7 +229,7 @@ function validate(grammar: Grammar) {
         isBuiltIn(base) ||
           !!grammar.unionsByName[bare] ||
           !!grammar.nodesByName[bare],
-        `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`
+        `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`,
       );
     }
   }
@@ -244,29 +244,29 @@ function validate(grammar: Grammar) {
   invariant(
     unreferenced.size === 0,
     `The following node kinds are never referenced: ${Array.from(
-      unreferenced
-    ).join(", ")}`
+      unreferenced,
+    ).join(", ")}`,
   );
 }
 
 function generateAssertParam(
   fieldName: string, // actualKindValue
   fieldRef: NodeRef, // expectedNode
-  currentContext: string
+  currentContext: string,
 ): string {
   return `assert(${generateTypeCheckCondition(
     fieldRef,
-    fieldName
+    fieldName,
   )}, \`Invalid value for "${fieldName}" arg in ${JSON.stringify(
-    currentContext
+    currentContext,
   )} call.\\nExpected: ${serializeRef(
-    fieldRef
+    fieldRef,
   )}\\nGot:      \${JSON.stringify(${fieldName})}\`)`;
 }
 
 function generateTypeCheckCondition(
   expected: NodeRef,
-  actualValue: string
+  actualValue: string,
 ): string {
   const conditions = [];
 
@@ -274,8 +274,8 @@ function generateTypeCheckCondition(
     conditions.push(
       `${actualValue} === null || ${generateTypeCheckCondition(
         expected.of,
-        actualValue
-      )}`
+        actualValue,
+      )}`,
     );
   } else if (expected.ref === "List") {
     conditions.push(`Array.isArray(${actualValue})`);
@@ -285,8 +285,8 @@ function generateTypeCheckCondition(
     conditions.push(
       `${actualValue}.every(item => ${generateTypeCheckCondition(
         expected.of,
-        "item"
-      )})`
+        "item",
+      )})`,
     );
   } else if (expected.ref === "NodeUnion") {
     conditions.push(`is${expected.name}(${actualValue})`);
@@ -304,11 +304,11 @@ function generateTypeCheckCondition(
             return [];
           }
         })
-        .join(" || ")})`
+        .join(" || ")})`,
     );
   } else {
     conditions.push(
-      `${actualValue}._kind === ${JSON.stringify(expected.name)}`
+      `${actualValue}._kind === ${JSON.stringify(expected.name)}`,
     );
   }
 
@@ -426,7 +426,7 @@ function generateCode(grammar: Grammar): string {
   for (const union of grammar.unions) {
     const [subNodes, subUnions] = partition(
       union.members,
-      (ref) => getBareRefTarget(ref) === "Node"
+      (ref) => getBareRefTarget(ref) === "Node",
     );
     const conditions = subNodes
       .map((ref) => `node._kind === ${JSON.stringify(getBareRef(ref))}`)
@@ -478,7 +478,7 @@ function generateCode(grammar: Grammar): string {
                 _kind: ${JSON.stringify(node.name)}
                 ${node.fields
                   .map(
-                    (field) => `${field.name}: ${getTypeScriptType(field.ref)}`
+                    (field) => `${field.name}: ${getTypeScriptType(field.ref)}`,
                   )
                   .join("\n")}
                 range: Range
@@ -493,26 +493,26 @@ function generateCode(grammar: Grammar): string {
         node.fields.slice().reverse(),
         (field) =>
           field.ref.ref === "Optional" ||
-          (field.ref.ref === "List" && field.ref.min === 0)
-      ).map((field) => field.name)
+          (field.ref.ref === "List" && field.ref.min === 0),
+      ).map((field) => field.name),
     );
 
     const runtimeTypeChecks = node.fields.map((field) =>
-      generateAssertParam(field.name, field.ref, node.name)
+      generateAssertParam(field.name, field.ref, node.name),
     );
     runtimeTypeChecks.push(`assertRange(range, ${JSON.stringify(node.name)})`);
 
     output.push(`
       export function ${lowercaseFirst(node.name)}(${[
-      ...node.fields.map((field) => {
-        const key = field.name;
-        const type = getTypeScriptType(field.ref);
-        return optionals.has(field.name)
-          ? `${key}: ${type} = ${field.ref.ref === "Optional" ? "null" : "[]"}`
-          : `${key}: ${type}`;
-      }),
-      "range: Range = [0, 0]",
-    ].join(", ")}): ${node.name} {
+        ...node.fields.map((field) => {
+          const key = field.name;
+          const type = getTypeScriptType(field.ref);
+          return optionals.has(field.name)
+            ? `${key}: ${type} = ${field.ref.ref === "Optional" ? "null" : "[]"}`
+            : `${key}: ${type}`;
+        }),
+        "range: Range = [0, 0]",
+      ].join(", ")}): ${node.name} {
                 ${
                   runtimeTypeChecks.length > 0
                     ? `DEBUG && (() => { ${runtimeTypeChecks.join("\n")} })()`
@@ -521,7 +521,7 @@ function generateCode(grammar: Grammar): string {
                 return asNode({
                     _kind: ${JSON.stringify(node.name)},
                     ${[...node.fields.map((field) => field.name), "range"].join(
-                      ", "
+                      ", ",
                     )}
                 });
             }
@@ -532,7 +532,7 @@ function generateCode(grammar: Grammar): string {
   output.push("interface Visitor<TContext> {");
   for (const node of grammar.nodes) {
     output.push(
-      `  ${node.name}?(node: ${node.name}, context: TContext): void;`
+      `  ${node.name}?(node: ${node.name}, context: TContext): void;`,
     );
   }
   output.push("}");
@@ -543,12 +543,12 @@ function generateCode(grammar: Grammar): string {
       export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext>, context: TContext): TNode;
       export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext | undefined>, context?: TContext): TNode {
         switch (node._kind) {
-        `
+        `,
   );
 
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
-      (field) => !isBuiltIn(getBaseNodeRef(field.ref))
+      (field) => !isBuiltIn(getBaseNodeRef(field.ref)),
     );
 
     output.push(`case ${JSON.stringify(node.name)}:`);
@@ -562,13 +562,13 @@ function generateCode(grammar: Grammar): string {
 
         case "List":
           output.push(
-            `  node.${field.name}.forEach(${field.name[0]} => visit(${field.name[0]}, visitor, context));`
+            `  node.${field.name}.forEach(${field.name[0]} => visit(${field.name[0]}, visitor, context));`,
           );
           break;
 
         case "Optional":
           output.push(
-            `  // TODO: Implement visiting for _optional_ field node.${field.name}`
+            `  // TODO: Implement visiting for _optional_ field node.${field.name}`,
           );
           break;
       }
@@ -583,7 +583,7 @@ function generateCode(grammar: Grammar): string {
 
         return node;
       }
-      `
+      `,
   );
 
   return output.join("\n");
@@ -604,7 +604,7 @@ function writeFile(contents: string, path: string) {
 
 export async function generateAST(
   inpath: string,
-  outpath: string
+  outpath: string,
 ): Promise<void> {
   const grammar = parseGrammarFromPath(inpath);
   const uglyCode = generateCode(grammar);
@@ -613,7 +613,7 @@ export async function generateAST(
   const config = await prettier.resolveConfig(outpath);
   if (config === null) {
     throw new Error(
-      "Could not find or read .prettierrc config for this project"
+      "Could not find or read .prettierrc config for this project",
     );
   }
 
