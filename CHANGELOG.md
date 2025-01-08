@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.2] - 2025-01-08
+
 - Make `typescript` a peer dependency
 - Upgrade some (dev) dependencies
 
