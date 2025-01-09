@@ -299,6 +299,8 @@ function generateTypeCheckCondition(
           part = part.trim();
           if (TYPEOF_CHECKS.has(part)) {
             return [`typeof ${actualValue} === ${JSON.stringify(part)}`];
+          } else if (part === "null") {
+            return [`${actualValue} === null`];
           } else {
             console.warn(`Cannot emit runtime type check for ${part}`);
             return [];

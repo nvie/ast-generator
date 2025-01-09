@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Add support for `null` inside literal field types
+
 ## [0.2.3] - 2025-01-08
 
 - Fix bug when using CLI:
