@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.2.4] - 2025-01-09
+
 - Add support for `null` inside literal field types
 
 ## [0.2.3] - 2025-01-08
