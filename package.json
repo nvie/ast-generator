@@ -33,11 +33,6 @@
     "grammar",
     "typescript"
   ],
-  "dependencies": {
-    "commander": "^13.0.0",
-    "prettier": "^3.4.2",
-    "tiny-invariant": "^1.3.3"
-  },
   "devDependencies": {
     "@release-it/keep-a-changelog": "^6.0.0",
     "@types/node": "^22.10.7",
@@ -51,6 +46,9 @@
     "vitest": "^3.0.2"
   },
   "peerDependencies": {
+    "commander": "^13.0.0",
+    "prettier": "^3.4.2",
+    "tiny-invariant": "^1.3.3",
     "typescript": "^4 || ^5"
   },
   "sideEffects": false
