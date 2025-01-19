@@ -409,23 +409,153 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
   `);
 
   if (r.message) {
-    throw new Error("Parse error: " + r.message);
+    throw new Error(r.message);
   } else {
-    throw new Error("Parse OK! ");
+    console.log("Parse OK! ");
   }
 
-  const unionsByName: LUT<AGUnion> = {};
-  const nodesByName: LUT<AGNode> = {};
+  function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
+    const result: LUT<T> = {};
+    for (const item of arr) {
+      result[keyFn(item)] = item;
+    }
+    return result;
+  }
 
-  return {
-    nodesByName: {},
-    nodes: [],
+  const semantics = grammar
+    .createSemantics()
+    .addAttribute<
+      | AGGrammar
+      | AGNodeDef
+      | AGUnionDef
+      | AGField
+      | AGNodeRef
+      | MultiNodeRef
+      | BuiltinType
+      | string
+    >("ast", {
+      Start(defList): AGGrammar {
+        const defs = defList.children.map(
+          (d) => d.ast as AGNodeDef | AGUnionDef,
+        );
 
-    unionsByName: {},
-    unions: [],
+        const unionsByName: LUT<AGUnionDef> = {};
+        const nodesByName: LUT<AGNodeDef> = {};
 
-    startNode: "Abc",
-  };
+        for (const def of defs) {
+          if ("members" in def) {
+            unionsByName[def.name] = def;
+          } else {
+            nodesByName[def.name] = def;
+          }
+        }
+
+        return {
+          // The first-defined node in the document is the start node
+          startNode: Object.keys(nodesByName)[0],
+
+          nodesByName,
+          nodes: Object.keys(nodesByName)
+            .sort()
+            .map((name) => nodesByName[name]),
+
+          unionsByName,
+          unions: Object.keys(unionsByName)
+            .sort()
+            .map((name) => unionsByName[name]),
+        };
+      },
+
+      nodename(_upper, _alnum): string {
+        return this.SourceString;
+      },
+      identifier(_letter, _alnum): string {
+        return this.SourceString;
+      },
+
+      AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
+        const fields = fieldList.children.map((f) => f.ast as AGField);
+        const fieldsByName = index(fields, (f) => f.name);
+        return {
+          name: name.ast,
+          fieldsByName,
+          fields,
+        };
+      },
+
+      AGUnionDef(_at, name, _eq, memberList): AGUnionDef {
+        return {
+          name: name.ast,
+          members: memberList.children.map((m) => m.ast),
+        };
+      },
+
+      AGField(name, _colon, ref): AGField {
+        return { name: name.ast, ref: ref.ast };
+      },
+
+      AGNodeRefs_oneOrMore(ref, _plus): MultiNodeRef {
+        return {
+          ref: "List",
+          of: ref.ast,
+          min: 1,
+        };
+      },
+
+      AGNodeRefs_zeroOrMore(ref, _star): MultiNodeRef {
+        return {
+          ref: "List",
+          of: ref.ast,
+          min: 0,
+        };
+      },
+
+      AGNodeRef_union(_at, _nodename): string {
+        return this.sourceString;
+      },
+
+      AGTypeRef_optional(ref, _qmark): AGNodeRef {
+        return {
+          ref: "Optional",
+          of: ref.ast,
+        };
+      },
+
+      BuiltinType(_ltick, content, _rtick): BuiltinType {
+        return {
+          ref: "Raw",
+          name: content.sourceString,
+        };
+      },
+
+      // AGNodeDef
+      //   = nodename "{" AGField* "}"
+      //
+      // AGUnionDef
+      //   = "@" nodename "=" ListOf<AGNodeRef, "|">
+      //
+      // AGField = identifier ":" AGTypeRef
+      //
+      // AGTypeRef
+      //   = AGNodeRefs "?"  -- optional
+      //   | AGNodeRefs      -- mandatory
+      //
+      // AGNodeRefs
+      //   = AGNodeRef "+"  -- oneOrMore
+      //   | AGNodeRef "*"  -- zeroOrMore
+      //   | AGNodeRef      -- one
+      //
+      // AGNodeRef
+      //   = BuiltinType   -- builtin
+      //   | nodename      -- node
+      //   | "@" nodename  -- union
+      //
+      // // e.g. \`boolean\`, or \`string | boolean\`
+      // BuiltinType
+      //   = backtick (~backtick any)+ backtick
+    });
+
+  return semantics(r).ast;
 
   // let currUnion: AGNodeRef[] | void;
   // let currNode: LUT<AGField> | void;
@@ -471,20 +601,6 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
   //   node.fields = Object.values(node.fieldsByName);
   // }
   //
-  // return {
-  //   // The first-defined node in the document is the start node
-  //   startNode: Object.keys(nodesByName)[0],
-  //
-  //   nodesByName,
-  //   nodes: Object.keys(nodesByName)
-  //     .sort()
-  //     .map((name) => nodesByName[name]),
-  //
-  //   unionsByName,
-  //   unions: Object.keys(unionsByName)
-  //     .sort()
-  //     .map((name) => unionsByName[name]),
-  // };
 }
 
 function parseGrammarFromString_withClassic(src: string): AGGrammar {
