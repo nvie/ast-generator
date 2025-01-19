@@ -5,28 +5,28 @@ import invariant from "tiny-invariant";
 
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"]);
 
-function isBuiltIn(ref: BaseNodeRef): ref is RawRef {
+function isBuiltInType(ref: AGBaseNodeRef): ref is BuiltinType {
   return ref.ref === "Raw";
 }
 
-type RawRef = { ref: "Raw"; name: string };
+type BuiltinType = { ref: "Raw"; name: string };
 
-// e.g. "SomeNode" or "@SomeUnion"
-type BaseNodeRef =
-  | RawRef // e.g. `boolean`, or `string | boolean`
+// e.g. "MyNode" or "@MyUnion"
+type AGBaseNodeRef =
+  | BuiltinType // e.g. `boolean`, or `string | boolean`
   | { ref: "Node"; name: string }
   | { ref: "NodeUnion"; name: string };
 
-// e.g. "SomeNode+" or "@SomeUnion*"
+// e.g. "MyNode+" or "@MyUnion*"
 type MultiNodeRef =
-  | BaseNodeRef
+  | AGBaseNodeRef
   | {
       ref: "List";
-      of: BaseNodeRef;
+      of: AGBaseNodeRef;
       min: 0 | 1;
     };
 
-// e.g. "SomeNode?" or "@SomeUnion*?"
+// e.g. "MyNode?" or "@MyUnion*?"
 type AGNodeRef =
   | MultiNodeRef
   | {
@@ -35,7 +35,7 @@ type AGNodeRef =
     };
 
 // e.g. ['FloatLiteral', 'IntLiteral', '@StringExpr']
-type AGNodeUnion = {
+type AGUnionDef = {
   name: string;
   members: AGNodeRef[];
 };
@@ -45,8 +45,7 @@ type AGField = {
   ref: AGNodeRef;
 };
 
-// e.g. { pattern: '@AssignmentPattern', expr: '@Expr' }
-type AGNode = {
+type AGNodeDef = {
   name: string;
   fieldsByName: LUT<AGField>;
   fields: AGField[];
@@ -57,11 +56,11 @@ type LUT<T> = { [key: string]: T };
 type AGGrammar = {
   startNode: string;
 
-  nodesByName: LUT<AGNode>;
-  nodes: AGNode[]; // Sorted list of nodes
+  nodesByName: LUT<AGNodeDef>;
+  nodes: AGNodeDef[]; // Sorted list of nodes
 
-  unionsByName: LUT<AGNodeUnion>;
-  unions: AGNodeUnion[]; // Sorted list of node unions
+  unionsByName: LUT<AGUnionDef>;
+  unions: AGUnionDef[]; // Sorted list of node unions
 };
 
 function takeWhile<T>(items: T[], predicate: (item: T) => boolean): T[] {
@@ -93,7 +92,7 @@ function lowercaseFirst(text: string): string {
   return text[0].toLowerCase() + text.slice(1);
 }
 
-function parseBaseNodeRef(spec: string): BaseNodeRef {
+function parseBaseNodeRef(spec: string): AGBaseNodeRef {
   const match = spec.match(/^((@?[a-z]+)|`[a-z\s|]+`)$/i);
   invariant(match, `Invalid reference: "${spec}"`);
   if (spec.startsWith("@")) {
@@ -144,7 +143,7 @@ function parseSpec(spec: string): AGNodeRef {
 }
 
 /**
- * Given a NodeRef instance, returns its formatted string, e.g. "@SomeNode*"
+ * Given a NodeRef instance, returns its formatted string, e.g. "@MyNode*"
  */
 function serializeRef(ref: AGNodeRef): string {
   if (ref.ref === "Optional") {
@@ -165,7 +164,7 @@ function serializeRef(ref: AGNodeRef): string {
   }
 }
 
-function getBaseNodeRef(ref: AGNodeRef): BaseNodeRef {
+function getBaseNodeRef(ref: AGNodeRef): AGBaseNodeRef {
   return ref.ref === "Optional"
     ? getBaseNodeRef(ref.of)
     : ref.ref === "List"
@@ -196,7 +195,7 @@ function getTypeScriptType(ref: AGNodeRef): string {
     ? getTypeScriptType(ref.of) + " | null"
     : ref.ref === "List"
       ? getTypeScriptType(ref.of) + "[]"
-      : isBuiltIn(ref)
+      : isBuiltInType(ref)
         ? ref.name
         : ref.name;
 }
@@ -227,7 +226,7 @@ function validate(grammar: AGGrammar) {
       const base = getBaseNodeRef(field.ref);
       referenced.add(bare);
       invariant(
-        isBuiltIn(base) ||
+        isBuiltInType(base) ||
           !!grammar.unionsByName[bare] ||
           !!grammar.nodesByName[bare],
         `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`,
@@ -291,7 +290,7 @@ function generateTypeCheckCondition(
     );
   } else if (expected.ref === "NodeUnion") {
     conditions.push(`is${expected.name}(${actualValue})`);
-  } else if (isBuiltIn(expected)) {
+  } else if (isBuiltInType(expected)) {
     conditions.push(
       `( ${expected.name
         .replace(/`/g, "")
@@ -324,11 +323,168 @@ function parseGrammarFromPath(path: string): AGGrammar {
 }
 
 export function parseGrammarFromString(src: string): AGGrammar {
-  return parseGrammarFromString_withClassic(src);
+  return parseGrammarFromString_withOhm(src);
 }
 
 function parseGrammarFromString_withOhm(src: string): AGGrammar {
-  throw new Error("To implement");
+  const grammar = ohm.grammar(String.raw`
+    AstGeneratorGrammar {
+      Start = Def+
+
+      // Override Ohm's built-in definition of space
+      space := "\u0000".." " | comment
+      comment = "#" (~"\n" any)*
+      nodename (a node name) = upper (alnum)*
+      identifier (an identifier) = letter (alnum)*
+      backtick = "\u0060"
+
+      Def
+        = AGNodeDef
+        | AGUnionDef
+
+      AGNodeDef
+        = nodename "{" AGField* "}"
+
+      AGUnionDef
+        = "@" nodename "=" ListOf<AGNodeRef, "|">
+
+      AGField = identifier ":" AGTypeRef
+
+      AGTypeRef
+        = AGNodeRefs "?"  -- optional
+        | AGNodeRefs      -- mandatory
+
+      AGNodeRefs
+        = AGNodeRef "+"  -- oneOrMore
+        | AGNodeRef "*"  -- zeroOrMore
+        | AGNodeRef      -- one
+
+      AGNodeRef
+        = BuiltinType   -- builtin
+        | nodename      -- node
+        | "@" nodename  -- union
+
+      // e.g. \`boolean\`, or \`string | boolean\`
+      BuiltinType
+        = backtick (~backtick any)+ backtick
+    }
+  `);
+
+  const r = grammar.match(`
+
+   # This is a comment
+   Abc {
+     x0: \`string\`
+     x1: \`string\`+
+     x2: \`string\`*
+     x3: \`string\`?
+     y0: @Xyz
+     y1: @Xyz*
+     y2: @Xyz+
+     y3: @Xyz?
+     y4: @Xyz?
+     z0: Pqr
+     z1: Pqr+
+     z2: Pqr*
+     z3: Pqr?
+     z5: Pqr+?
+     z6: Pqr*?
+    }
+
+   @Xyz = Pqr | Stu
+
+   Pqr {
+     p: \`number\`?
+    }
+
+   # This is a comment
+   Stu {
+     s: \`number\`
+    }
+
+   Empty {
+     # I have no fields
+   }
+
+  `);
+
+  if (r.message) {
+    throw new Error("Parse error: " + r.message);
+  } else {
+    throw new Error("Parse OK! ");
+  }
+
+  const unionsByName: LUT<AGUnion> = {};
+  const nodesByName: LUT<AGNode> = {};
+
+  return {
+    nodesByName: {},
+    nodes: [],
+
+    unionsByName: {},
+    unions: [],
+
+    startNode: "Abc",
+  };
+
+  // let currUnion: AGNodeRef[] | void;
+  // let currNode: LUT<AGField> | void;
+  //
+  // for (let line of lines) {
+  //   if (line.endsWith(":")) {
+  //     line = line.substring(0, line.length - 1).trim();
+  //
+  //     // NodeUnion or Node?
+  //     if (line.startsWith("@")) {
+  //       currUnion = [];
+  //       currNode = undefined;
+  //       unionsByName[line.substring(1)] = {
+  //         name: line.substring(1),
+  //         members: currUnion,
+  //       };
+  //     } else {
+  //       currNode = {};
+  //       currUnion = undefined;
+  //       nodesByName[line] = {
+  //         name: line,
+  //         fieldsByName: currNode,
+  //         fields: [], // Will be populated in a later pass
+  //       };
+  //     }
+  //     continue;
+  //   }
+  //
+  //   if (line.startsWith("|")) {
+  //     const union = line.substring(1).trim();
+  //     invariant(currUnion, "Expect a current union");
+  //     currUnion.push(parseBaseNodeRef(union));
+  //   } else {
+  //     const [name, ...rest] = line.split(/\s+/);
+  //     const spec = rest.join(" ");
+  //     invariant(currNode, "Expect a current node");
+  //     currNode[name] = { name, ref: parseSpec(spec) };
+  //   }
+  // }
+  //
+  // // Populate all the fields, for easier looping later
+  // for (const node of Object.values(nodesByName)) {
+  //   node.fields = Object.values(node.fieldsByName);
+  // }
+  //
+  // return {
+  //   // The first-defined node in the document is the start node
+  //   startNode: Object.keys(nodesByName)[0],
+  //
+  //   nodesByName,
+  //   nodes: Object.keys(nodesByName)
+  //     .sort()
+  //     .map((name) => nodesByName[name]),
+  //
+  //   unionsByName,
+  //   unions: Object.keys(unionsByName)
+  //     .sort()
+  //     .map((name) => unionsByName[name]),
+  // };
 }
 
 function parseGrammarFromString_withClassic(src: string): AGGrammar {
@@ -337,8 +493,8 @@ function parseGrammarFromString_withClassic(src: string): AGGrammar {
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#"));
 
-  const unionsByName: LUT<AGNodeUnion> = {};
-  const nodesByName: LUT<AGNode> = {};
+  const unionsByName: LUT<AGUnionDef> = {};
+  const nodesByName: LUT<AGNodeDef> = {};
 
   let currUnion: AGNodeRef[] | void;
   let currNode: LUT<AGField> | void;
@@ -559,7 +715,7 @@ function generateCode(grammar: AGGrammar): string {
 
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
-      (field) => !isBuiltIn(getBaseNodeRef(field.ref)),
+      (field) => !isBuiltInType(getBaseNodeRef(field.ref)),
     );
 
     output.push(`case ${JSON.stringify(node.name)}:`);
