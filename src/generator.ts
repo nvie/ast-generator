@@ -1,4 +1,5 @@
 import fs from "fs";
+import * as ohm from "ohm-js";
 import prettier from "prettier";
 import invariant from "tiny-invariant";
 
@@ -323,6 +324,14 @@ function parseGrammarFromPath(path: string): AGGrammar {
 }
 
 export function parseGrammarFromString(src: string): AGGrammar {
+  return parseGrammarFromString_withClassic(src);
+}
+
+function parseGrammarFromString_withOhm(src: string): AGGrammar {
+  throw new Error("To implement");
+}
+
+function parseGrammarFromString_withClassic(src: string): AGGrammar {
   const lines = src
     .split("\n")
     .map((line) => line.trim())
