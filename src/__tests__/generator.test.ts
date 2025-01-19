@@ -117,3 +117,83 @@ describe("parsing grammars", () => {
     ).toMatchSnapshot();
   });
 });
+
+describe("checking document validity", () => {
+  it("thrown where there is a duplicate def (node)", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo {}
+      Foo {}
+   `),
+    ).toThrow("Duplicate definition of 'Foo'");
+  });
+
+  it("thrown where there is a duplicate union def (node)", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo {}
+      Bar {}
+      @Bar = Foo
+      @Bar = Bar
+   `),
+    ).toThrow("Duplicate definition of '@Bar'");
+  });
+
+  it("thrown where there is a duplicate def (node + union)", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo {}
+      Bar {}
+      @Foo = Bar
+   `),
+    ).toThrow("Duplicate definition of '@Foo'");
+  });
+
+  it("thrown when there is an unknown reference (node)", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo { bar: Ba }
+      #          ^^ Typo, should fail
+      Bar { }
+   `),
+    ).toThrow("Cannot find 'Ba'");
+  });
+
+  it("thrown when there is an unknown reference (node)", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo { bar: @Ba }
+      #          ^^^ Typo, should fail
+      @Bar = Qux | Mutt
+      Qux {}
+      Mutt {}
+   `),
+    ).toThrow("Cannot find '@Ba'");
+  });
+
+  it("thrown when there is an unused node def", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo { }
+      Bar { }
+   `),
+    ).toThrow("Unused definition 'Bar'");
+  });
+
+  it("thrown when there is an unused union def", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo { }
+      @Bar = Foo
+   `),
+    ).toThrow("Unused definition '@Bar'");
+  });
+
+  it.skip("[todo later] thrown when there is a circular ref", () => {
+    expect(() =>
+      parseGrammarFromString_withOhm(`
+      Foo { foo: Foo }
+   `),
+    ).toThrow("Circular ref 'Foo'");
+  });
+});
