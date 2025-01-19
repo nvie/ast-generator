@@ -8,9 +8,7 @@ import {
 describe("same impl", () => {
   it("simple example", () => {
     const newSyntax = `
-      Abc {
-        name: \`string\`
-      }
+      Abc { name: string }
     `;
 
     const oldSyntax = `Abc:
@@ -25,11 +23,11 @@ describe("same impl", () => {
   it("same impl", () => {
     const newSyntax = `# This is a comment
    Abc {
-     x0: \`string\`
-     x1: \`string\`+
-     x2: \`string\`*
-     x3?: \`string\`
-     y0: @Xyz
+     x0:
+     string
+     x1: string+
+     x2: string*
+     x3?:string y0:@Xyz
      y1: @Xyz*
      y2: @Xyz+
      y3?: @Xyz
@@ -43,12 +41,12 @@ describe("same impl", () => {
    @Xyz = Pqr | Stu
   
    Pqr {
-     p?: \`number\`
+     p?: number
    }
   
    # This is a comment
    Stu {
-     s: \`number\`
+     s: number
    }
    `;
 

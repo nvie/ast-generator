@@ -336,7 +336,6 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
       comment = "#" (~"\n" any)*
       nodename (a node name) = upper alnum*
       identifier (an identifier) = letter alnum*
-      backtick = "\u0060"
 
       Def
         = AGNodeDef
@@ -352,13 +351,19 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
         = identifier "?"? ":" AGNodeRef ("+" | "*")?
 
       AGNodeRef
-        = BuiltinType   -- builtin
-        | nodename      -- node
-        | "@" nodename  -- union
+        = BuiltinTypeUnion  -- builtin
+        | nodename          -- node
+        | "@" nodename      -- union
+
+      BuiltinTypeUnion
+        = NonemptyListOf<BuiltinType, "|">
 
       // e.g. \`boolean\`, or \`string | boolean\`
       BuiltinType
-        = backtick (~backtick any)+ backtick
+        = "string"
+        | "number"
+        | "boolean"
+        | "null"
     }
   `);
 
@@ -468,10 +473,10 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
         return { ref: "NodeUnion", name: nodename.ast };
       },
 
-      BuiltinType(_ltick, content, _rtick): BuiltinType {
+      BuiltinTypeUnion(list): BuiltinType {
         return {
           ref: "Raw",
-          name: content.sourceString,
+          name: list.sourceString,
         };
       },
     });
