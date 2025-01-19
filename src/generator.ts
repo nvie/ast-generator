@@ -450,7 +450,7 @@ semantics.addAttribute<
   },
 
   AGNodeRef_node(nodename): AGBaseNodeRef {
-    return { ref: "Node", name: nodename.sourceString };
+    return { ref: "Node", name: nodename.ast };
   },
 
   AGNodeRef_union(_at, nodename): AGBaseNodeRef {
@@ -465,6 +465,84 @@ semantics.addAttribute<
   },
 });
 
+semantics.addAttribute<ohm.Node[]>("allRefs", {
+  _terminal() {
+    return [];
+  },
+  _nonterminal(...children) {
+    return children.flatMap((c) => c.allRefs);
+  },
+  _iter(...children) {
+    return children.flatMap((c) => c.allRefs);
+  },
+  AGNodeRef_node(_nodename) {
+    return [this];
+  },
+  AGNodeRef_union(_at, _nodename) {
+    return [this];
+  },
+});
+
+semantics.addOperation<void>("check", {
+  Start(defList): void {
+    const validNodes: AGNodeDef[] = defList.children
+      .map((d) => d.ast)
+      .filter((def) => !("members" in def));
+    const validUnions: AGUnionDef[] = defList.children
+      .map((d) => d.ast)
+      .filter((def) => "members" in def);
+
+    const validNodeNames: string[] = validNodes.map((d) => d.name);
+    const validUnionNames: string[] = validUnions.map((d) => d.name);
+
+    const unusedNodeNames: Set<string> = new Set(validNodeNames);
+    const unusedUnionNames: Set<string> = new Set(validUnionNames);
+
+    // Remove the start node's name
+    unusedNodeNames.delete(this.ast.startNode);
+
+    for (const ohmNode of this.allRefs as ohm.Node[]) {
+      const astNode = ohmNode.ast;
+
+      // Check that all MyNode refs are valid
+      if (astNode.ref === "Node") {
+        if (!validNodeNames.includes(astNode.name)) {
+          throw new Error(
+            ohmNode.source.getLineAndColumnMessage() +
+              `Cannot find '${astNode.name}'`,
+          );
+        } else {
+          unusedNodeNames.delete(astNode.name);
+        }
+      }
+
+      // Check that all @MyUnion refs are valid
+      if (astNode.ref === "NodeUnion") {
+        if (!validUnionNames.includes(astNode.name)) {
+          throw new Error(
+            ohmNode.source.getLineAndColumnMessage() +
+              `Cannot find '@${astNode.name}'`,
+          );
+        } else {
+          unusedUnionNames.delete(astNode.name);
+        }
+      }
+    }
+
+    if (unusedNodeNames.size > 0) {
+      // TODO: Link error to node in the source!
+      const [name] = unusedNodeNames;
+      throw new Error(`Unused definition '${name}'`);
+    }
+
+    if (unusedUnionNames.size > 0) {
+      // TODO: Link error to node in the source!
+      const [name] = unusedUnionNames;
+      throw new Error(`Unused definition '@${name}'`);
+    }
+  },
+});
+
 function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
   const result: LUT<T> = {};
   for (const item of arr) {
@@ -475,61 +553,13 @@ function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
 
 export function parseGrammarFromString_withOhm(text: string): AGGrammar {
   const r = grammar.match(text);
-  if (r.message) {
-    throw new Error(r.message);
-  }
-
-  const s = semantics(r);
-  // if (s.check()) {
-  return s.ast;
-  // } else {
-  //   throw new Error("Should have thrown by now");
+  // if (r.message) {
+  //   throw new Error(r.message);
   // }
 
-  // let currUnion: AGNodeRef[] | void;
-  // let currNode: LUT<AGField> | void;
-  //
-  // for (let line of lines) {
-  //   if (line.endsWith(":")) {
-  //     line = line.substring(0, line.length - 1).trim();
-  //
-  //     // NodeUnion or Node?
-  //     if (line.startsWith("@")) {
-  //       currUnion = [];
-  //       currNode = undefined;
-  //       unionsByName[line.substring(1)] = {
-  //         name: line.substring(1),
-  //         members: currUnion,
-  //       };
-  //     } else {
-  //       currNode = {};
-  //       currUnion = undefined;
-  //       nodesByName[line] = {
-  //         name: line,
-  //         fieldsByName: currNode,
-  //         fields: [], // Will be populated in a later pass
-  //       };
-  //     }
-  //     continue;
-  //   }
-  //
-  //   if (line.startsWith("|")) {
-  //     const union = line.substring(1).trim();
-  //     invariant(currUnion, "Expect a current union");
-  //     currUnion.push(parseBaseNodeRef(union));
-  //   } else {
-  //     const [name, ...rest] = line.split(/\s+/);
-  //     const spec = rest.join(" ");
-  //     invariant(currNode, "Expect a current node");
-  //     currNode[name] = { name, ref: parseSpec(spec) };
-  //   }
-  // }
-  //
-  // // Populate all the fields, for easier looping later
-  // for (const node of Object.values(nodesByName)) {
-  //   node.fields = Object.values(node.fieldsByName);
-  // }
-  //
+  const tree = semantics(r);
+  tree.check(); // Will throw in case of errors
+  return tree.ast;
 }
 
 export function parseGrammarFromString_withClassic(src: string): AGGrammar {
