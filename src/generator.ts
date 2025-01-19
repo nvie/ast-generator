@@ -326,8 +326,7 @@ export function parseGrammarFromString(src: string): AGGrammar {
   return parseGrammarFromString_withOhm(src);
 }
 
-export function parseGrammarFromString_withOhm(text: string): AGGrammar {
-  const grammar = ohm.grammar(String.raw`
+const grammar = ohm.grammar(String.raw`
     AstGeneratorGrammar {
       Start = Def+
 
@@ -367,121 +366,125 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
     }
   `);
 
+const semantics = grammar.createSemantics();
+
+semantics.addAttribute<
+  | AGGrammar
+  | AGNodeDef
+  | AGUnionDef
+  | AGField
+  | AGNodeRef
+  | MultiNodeRef
+  | BuiltinType
+  | string
+>("ast", {
+  nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
+  identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
+
+  Start(defList): AGGrammar {
+    const defs = defList.children.map((d) => d.ast as AGNodeDef | AGUnionDef);
+
+    const unionsByName: LUT<AGUnionDef> = {};
+    const nodesByName: LUT<AGNodeDef> = {};
+
+    for (const def of defs) {
+      if ("members" in def) {
+        unionsByName[def.name] = def;
+      } else {
+        nodesByName[def.name] = def;
+      }
+    }
+
+    return {
+      // The first-defined node in the document is the start node
+      startNode: Object.keys(nodesByName)[0],
+
+      nodesByName,
+      nodes: Object.keys(nodesByName)
+        .sort()
+        .map((name) => nodesByName[name]),
+
+      unionsByName,
+      unions: Object.keys(unionsByName)
+        .sort()
+        .map((name) => unionsByName[name]),
+    };
+  },
+
+  AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
+    const fields = fieldList.children.map((f) => f.ast);
+    const fieldsByName = index(fields, (f) => f.name);
+    return {
+      name: name.ast,
+      fieldsByName,
+      fields,
+    };
+  },
+
+  AGUnionDef(_at, name, _eq, memberList): AGUnionDef {
+    return {
+      name: name.ast,
+      members: memberList.asIteration().children.map((m) => m.ast),
+    };
+  },
+
+  AGField(name, qmark, _colon, refNode, repeat): AGField {
+    let ref = refNode.ast;
+
+    if (repeat.children.length > 0) {
+      const op = repeat.children[0].sourceString;
+      ref = {
+        ref: "List",
+        of: ref,
+        min: op === "+" ? 1 : 0,
+      };
+    }
+
+    if (qmark.children.length > 0) {
+      ref = {
+        ref: "Optional",
+        of: ref,
+      };
+    }
+    return { name: name.ast, ref };
+  },
+
+  AGNodeRef_node(nodename): AGBaseNodeRef {
+    return { ref: "Node", name: nodename.sourceString };
+  },
+
+  AGNodeRef_union(_at, nodename): AGBaseNodeRef {
+    return { ref: "NodeUnion", name: nodename.ast };
+  },
+
+  BuiltinTypeUnion(list): BuiltinType {
+    return {
+      ref: "Raw",
+      name: list.sourceString,
+    };
+  },
+});
+
+function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
+  const result: LUT<T> = {};
+  for (const item of arr) {
+    result[keyFn(item)] = item;
+  }
+  return result;
+}
+
+export function parseGrammarFromString_withOhm(text: string): AGGrammar {
   const r = grammar.match(text);
   if (r.message) {
     throw new Error(r.message);
   }
 
-  function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
-    const result: LUT<T> = {};
-    for (const item of arr) {
-      result[keyFn(item)] = item;
-    }
-    return result;
-  }
-
-  const semantics = grammar
-    .createSemantics()
-    .addAttribute<
-      | AGGrammar
-      | AGNodeDef
-      | AGUnionDef
-      | AGField
-      | AGNodeRef
-      | MultiNodeRef
-      | BuiltinType
-      | string
-    >("ast", {
-      nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
-      identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
-
-      Start(defList): AGGrammar {
-        const defs = defList.children.map(
-          (d) => d.ast as AGNodeDef | AGUnionDef,
-        );
-
-        const unionsByName: LUT<AGUnionDef> = {};
-        const nodesByName: LUT<AGNodeDef> = {};
-
-        for (const def of defs) {
-          if ("members" in def) {
-            unionsByName[def.name] = def;
-          } else {
-            nodesByName[def.name] = def;
-          }
-        }
-
-        return {
-          // The first-defined node in the document is the start node
-          startNode: Object.keys(nodesByName)[0],
-
-          nodesByName,
-          nodes: Object.keys(nodesByName)
-            .sort()
-            .map((name) => nodesByName[name]),
-
-          unionsByName,
-          unions: Object.keys(unionsByName)
-            .sort()
-            .map((name) => unionsByName[name]),
-        };
-      },
-
-      AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
-        const fields = fieldList.children.map((f) => f.ast);
-        const fieldsByName = index(fields, (f) => f.name);
-        return {
-          name: name.ast,
-          fieldsByName,
-          fields,
-        };
-      },
-
-      AGUnionDef(_at, name, _eq, memberList): AGUnionDef {
-        return {
-          name: name.ast,
-          members: memberList.asIteration().children.map((m) => m.ast),
-        };
-      },
-
-      AGField(name, qmark, _colon, refNode, repeat): AGField {
-        let ref = refNode.ast;
-
-        if (repeat.children.length > 0) {
-          const op = repeat.children[0].sourceString;
-          ref = {
-            ref: "List",
-            of: ref,
-            min: op === "+" ? 1 : 0,
-          };
-        }
-
-        if (qmark.children.length > 0) {
-          ref = {
-            ref: "Optional",
-            of: ref,
-          };
-        }
-        return { name: name.ast, ref };
-      },
-
-      AGNodeRef_node(nodename): AGBaseNodeRef {
-        return { ref: "Node", name: nodename.sourceString };
-      },
-
-      AGNodeRef_union(_at, nodename): AGBaseNodeRef {
-        return { ref: "NodeUnion", name: nodename.ast };
-      },
-
-      BuiltinTypeUnion(list): BuiltinType {
-        return {
-          ref: "Raw",
-          name: list.sourceString,
-        };
-      },
-    });
-
-  return semantics(r).ast;
+  const s = semantics(r);
+  // if (s.check()) {
+  return s.ast;
+  // } else {
+  //   throw new Error("Should have thrown by now");
+  // }
 
   // let currUnion: AGNodeRef[] | void;
   // let currNode: LUT<AGField> | void;
