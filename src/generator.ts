@@ -348,16 +348,8 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
       AGUnionDef
         = "@" nodename "=" NonemptyListOf<AGNodeRef, "|">
 
-      AGField = identifier ":" AGTypeRef
-
-      AGTypeRef
-        = AGNodeRefs "?"  -- optional
-        | AGNodeRefs      -- mandatory
-
-      AGNodeRefs
-        = AGNodeRef "+"  -- oneOrMore
-        | AGNodeRef "*"  -- zeroOrMore
-        | AGNodeRef      -- one
+      AGField
+        = identifier "?"? ":" AGNodeRef ("+" | "*")?
 
       AGNodeRef
         = BuiltinType   -- builtin
@@ -447,32 +439,25 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
         };
       },
 
-      AGField(name, _colon, ref): AGField {
-        return { name: name.ast, ref: ref.ast };
-      },
+      AGField(name, qmark, _colon, refNode, repeat): AGField {
+        let ref = refNode.ast;
 
-      AGNodeRefs_oneOrMore(ref, _plus): MultiNodeRef {
-        return {
-          ref: "List",
-          of: ref.ast,
-          min: 1,
-        };
-      },
+        if (repeat.children.length > 0) {
+          const op = repeat.children[0].sourceString;
+          ref = {
+            ref: "List",
+            of: ref,
+            min: op === "+" ? 1 : 0,
+          };
+        }
 
-      AGNodeRefs_zeroOrMore(ref, _star): MultiNodeRef {
-        return {
-          ref: "List",
-          of: ref.ast,
-          min: 0,
-        };
-      },
-
-      AGNodeRefs_one(ref): AGBaseNodeRef {
-        return ref.ast;
-      },
-
-      AGNodeRef_builtin(builtin): BuiltinType {
-        return builtin.ast;
+        if (qmark.children.length > 0) {
+          ref = {
+            ref: "Optional",
+            of: ref,
+          };
+        }
+        return { name: name.ast, ref };
       },
 
       AGNodeRef_node(nodename): AGBaseNodeRef {
@@ -481,13 +466,6 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
 
       AGNodeRef_union(_at, nodename): AGBaseNodeRef {
         return { ref: "NodeUnion", name: nodename.ast };
-      },
-
-      AGTypeRef_optional(ref, _qmark): AGNodeRef {
-        return {
-          ref: "Optional",
-          of: ref.ast,
-        };
       },
 
       BuiltinType(_ltick, content, _rtick): BuiltinType {

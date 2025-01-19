@@ -28,22 +28,22 @@ describe("same impl", () => {
      x0: \`string\`
      x1: \`string\`+
      x2: \`string\`*
-     x3: \`string\`?
+     x3?: \`string\`
      y0: @Xyz
      y1: @Xyz*
      y2: @Xyz+
-     y3: @Xyz?
-     y4: @Xyz?
+     y3?: @Xyz
+     y4?: @Xyz
      z0: Pqr
      z1: Pqr+
      z2: Pqr*
-     z3: Pqr?
+     z3?: Pqr
    }
   
    @Xyz = Pqr | Stu
   
    Pqr {
-     p: \`number\`?
+     p?: \`number\`
    }
   
    # This is a comment
