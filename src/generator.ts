@@ -26,7 +26,7 @@ type MultiNodeRef =
     };
 
 // e.g. "SomeNode?" or "@SomeUnion*?"
-type NodeRef =
+type AGNodeRef =
   | MultiNodeRef
   | {
       ref: "Optional";
@@ -34,33 +34,33 @@ type NodeRef =
     };
 
 // e.g. ['FloatLiteral', 'IntLiteral', '@StringExpr']
-type NodeUnion = {
+type AGNodeUnion = {
   name: string;
-  members: NodeRef[];
+  members: AGNodeRef[];
 };
 
-type Field = {
+type AGField = {
   name: string;
-  ref: NodeRef;
+  ref: AGNodeRef;
 };
 
 // e.g. { pattern: '@AssignmentPattern', expr: '@Expr' }
-type Node = {
+type AGNode = {
   name: string;
-  fieldsByName: LUT<Field>;
-  fields: Field[];
+  fieldsByName: LUT<AGField>;
+  fields: AGField[];
 };
 
 type LUT<T> = { [key: string]: T };
 
-type Grammar = {
+type AGGrammar = {
   startNode: string;
 
-  nodesByName: LUT<Node>;
-  nodes: Node[]; // Sorted list of nodes
+  nodesByName: LUT<AGNode>;
+  nodes: AGNode[]; // Sorted list of nodes
 
-  unionsByName: LUT<NodeUnion>;
-  unions: NodeUnion[]; // Sorted list of node unions
+  unionsByName: LUT<AGNodeUnion>;
+  unions: AGNodeUnion[]; // Sorted list of node unions
 };
 
 function takeWhile<T>(items: T[], predicate: (item: T) => boolean): T[] {
@@ -131,7 +131,7 @@ function parseMultiNodeRef(spec: string): MultiNodeRef {
   }
 }
 
-function parseSpec(spec: string): NodeRef {
+function parseSpec(spec: string): AGNodeRef {
   if (spec.endsWith("?")) {
     return {
       ref: "Optional",
@@ -145,7 +145,7 @@ function parseSpec(spec: string): NodeRef {
 /**
  * Given a NodeRef instance, returns its formatted string, e.g. "@SomeNode*"
  */
-function serializeRef(ref: NodeRef): string {
+function serializeRef(ref: AGNodeRef): string {
   if (ref.ref === "Optional") {
     return serializeRef(ref.of) + "?";
   } else if (ref.ref === "List") {
@@ -164,7 +164,7 @@ function serializeRef(ref: NodeRef): string {
   }
 }
 
-function getBaseNodeRef(ref: NodeRef): BaseNodeRef {
+function getBaseNodeRef(ref: AGNodeRef): BaseNodeRef {
   return ref.ref === "Optional"
     ? getBaseNodeRef(ref.of)
     : ref.ref === "List"
@@ -172,7 +172,7 @@ function getBaseNodeRef(ref: NodeRef): BaseNodeRef {
       : ref;
 }
 
-function getBareRef(ref: NodeRef): string {
+function getBareRef(ref: AGNodeRef): string {
   return ref.ref === "Optional"
     ? getBareRef(ref.of)
     : ref.ref === "List"
@@ -184,13 +184,13 @@ function getBareRef(ref: NodeRef): string {
           : ref.name;
 }
 
-function getBareRefTarget(ref: NodeRef): "Node" | "NodeUnion" | "Raw" {
+function getBareRefTarget(ref: AGNodeRef): "Node" | "NodeUnion" | "Raw" {
   return ref.ref === "Optional" || ref.ref === "List"
     ? getBareRefTarget(ref.of)
     : ref.ref;
 }
 
-function getTypeScriptType(ref: NodeRef): string {
+function getTypeScriptType(ref: AGNodeRef): string {
   return ref.ref === "Optional"
     ? getTypeScriptType(ref.of) + " | null"
     : ref.ref === "List"
@@ -200,7 +200,7 @@ function getTypeScriptType(ref: NodeRef): string {
         : ref.name;
 }
 
-function validate(grammar: Grammar) {
+function validate(grammar: AGGrammar) {
   // Keep track of which node names are referenced/used
   const referenced: Set<string> = new Set();
 
@@ -251,7 +251,7 @@ function validate(grammar: Grammar) {
 
 function generateAssertParam(
   fieldName: string, // actualKindValue
-  fieldRef: NodeRef, // expectedNode
+  fieldRef: AGNodeRef, // expectedNode
   currentContext: string,
 ): string {
   return `assert(${generateTypeCheckCondition(
@@ -265,7 +265,7 @@ function generateAssertParam(
 }
 
 function generateTypeCheckCondition(
-  expected: NodeRef,
+  expected: AGNodeRef,
   actualValue: string,
 ): string {
   const conditions = [];
@@ -317,22 +317,22 @@ function generateTypeCheckCondition(
   return conditions.map((c) => `(${c})`).join(" && ");
 }
 
-function parseGrammarFromPath(path: string): Grammar {
+function parseGrammarFromPath(path: string): AGGrammar {
   const src = fs.readFileSync(path, "utf-8");
   return parseGrammarFromString(src);
 }
 
-export function parseGrammarFromString(src: string): Grammar {
+export function parseGrammarFromString(src: string): AGGrammar {
   const lines = src
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line && !line.startsWith("#"));
 
-  const unionsByName: LUT<NodeUnion> = {};
-  const nodesByName: LUT<Node> = {};
+  const unionsByName: LUT<AGNodeUnion> = {};
+  const nodesByName: LUT<AGNode> = {};
 
-  let currUnion: NodeRef[] | void;
-  let currNode: LUT<Field> | void;
+  let currUnion: AGNodeRef[] | void;
+  let currNode: LUT<AGField> | void;
 
   for (let line of lines) {
     if (line.endsWith(":")) {
@@ -391,7 +391,7 @@ export function parseGrammarFromString(src: string): Grammar {
   };
 }
 
-function generateCode(grammar: Grammar): string {
+function generateCode(grammar: AGGrammar): string {
   // Will throw in case of errors
   validate(grammar);
 
