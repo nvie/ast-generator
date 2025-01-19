@@ -326,7 +326,7 @@ export function parseGrammarFromString(src: string): AGGrammar {
   return parseGrammarFromString_withOhm(src);
 }
 
-function parseGrammarFromString_withOhm(src: string): AGGrammar {
+export function parseGrammarFromString_withOhm(text: string): AGGrammar {
   const grammar = ohm.grammar(String.raw`
     AstGeneratorGrammar {
       Start = Def+
@@ -334,8 +334,8 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
       // Override Ohm's built-in definition of space
       space := "\u0000".." " | comment
       comment = "#" (~"\n" any)*
-      nodename (a node name) = upper (alnum)*
-      identifier (an identifier) = letter (alnum)*
+      nodename (a node name) = upper alnum*
+      identifier (an identifier) = letter alnum*
       backtick = "\u0060"
 
       Def
@@ -346,7 +346,7 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
         = nodename "{" AGField* "}"
 
       AGUnionDef
-        = "@" nodename "=" ListOf<AGNodeRef, "|">
+        = "@" nodename "=" NonemptyListOf<AGNodeRef, "|">
 
       AGField = identifier ":" AGTypeRef
 
@@ -370,48 +370,9 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
     }
   `);
 
-  const r = grammar.match(`
-
-   # This is a comment
-   Abc {
-     x0: \`string\`
-     x1: \`string\`+
-     x2: \`string\`*
-     x3: \`string\`?
-     y0: @Xyz
-     y1: @Xyz*
-     y2: @Xyz+
-     y3: @Xyz?
-     y4: @Xyz?
-     z0: Pqr
-     z1: Pqr+
-     z2: Pqr*
-     z3: Pqr?
-     z5: Pqr+?
-     z6: Pqr*?
-    }
-
-   @Xyz = Pqr | Stu
-
-   Pqr {
-     p: \`number\`?
-    }
-
-   # This is a comment
-   Stu {
-     s: \`number\`
-    }
-
-   Empty {
-     # I have no fields
-   }
-
-  `);
-
+  const r = grammar.match(text);
   if (r.message) {
     throw new Error(r.message);
-  } else {
-    console.log("Parse OK! ");
   }
 
   function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
@@ -434,6 +395,9 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
       | BuiltinType
       | string
     >("ast", {
+      nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
+      identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
+
       Start(defList): AGGrammar {
         const defs = defList.children.map(
           (d) => d.ast as AGNodeDef | AGUnionDef,
@@ -466,15 +430,8 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
         };
       },
 
-      nodename(_upper, _alnum): string {
-        return this.SourceString;
-      },
-      identifier(_letter, _alnum): string {
-        return this.SourceString;
-      },
-
       AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
-        const fields = fieldList.children.map((f) => f.ast as AGField);
+        const fields = fieldList.children.map((f) => f.ast);
         const fieldsByName = index(fields, (f) => f.name);
         return {
           name: name.ast,
@@ -486,7 +443,7 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
       AGUnionDef(_at, name, _eq, memberList): AGUnionDef {
         return {
           name: name.ast,
-          members: memberList.children.map((m) => m.ast),
+          members: memberList.asIteration().children.map((m) => m.ast),
         };
       },
 
@@ -510,8 +467,20 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
         };
       },
 
-      AGNodeRef_union(_at, _nodename): string {
-        return this.sourceString;
+      AGNodeRefs_one(ref): AGBaseNodeRef {
+        return ref.ast;
+      },
+
+      AGNodeRef_builtin(builtin): BuiltinType {
+        return builtin.ast;
+      },
+
+      AGNodeRef_node(nodename): AGBaseNodeRef {
+        return { ref: "Node", name: nodename.sourceString };
+      },
+
+      AGNodeRef_union(_at, nodename): AGBaseNodeRef {
+        return { ref: "NodeUnion", name: nodename.ast };
       },
 
       AGTypeRef_optional(ref, _qmark): AGNodeRef {
@@ -527,32 +496,6 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
           name: content.sourceString,
         };
       },
-
-      // AGNodeDef
-      //   = nodename "{" AGField* "}"
-      //
-      // AGUnionDef
-      //   = "@" nodename "=" ListOf<AGNodeRef, "|">
-      //
-      // AGField = identifier ":" AGTypeRef
-      //
-      // AGTypeRef
-      //   = AGNodeRefs "?"  -- optional
-      //   | AGNodeRefs      -- mandatory
-      //
-      // AGNodeRefs
-      //   = AGNodeRef "+"  -- oneOrMore
-      //   | AGNodeRef "*"  -- zeroOrMore
-      //   | AGNodeRef      -- one
-      //
-      // AGNodeRef
-      //   = BuiltinType   -- builtin
-      //   | nodename      -- node
-      //   | "@" nodename  -- union
-      //
-      // // e.g. \`boolean\`, or \`string | boolean\`
-      // BuiltinType
-      //   = backtick (~backtick any)+ backtick
     });
 
   return semantics(r).ast;
@@ -603,7 +546,7 @@ function parseGrammarFromString_withOhm(src: string): AGGrammar {
   //
 }
 
-function parseGrammarFromString_withClassic(src: string): AGGrammar {
+export function parseGrammarFromString_withClassic(src: string): AGGrammar {
   const lines = src
     .split("\n")
     .map((line) => line.trim())
