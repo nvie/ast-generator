@@ -5,8 +5,8 @@ export default defineConfig({
   dts: false,
   splitting: true,
   clean: true,
-  target: "es2015",
-  format: ["cjs"],
+  target: "es2022",
+  format: ["esm"],
 
   // Perhaps enable later?
   // "minify": true,
