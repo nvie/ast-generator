@@ -92,56 +92,6 @@ function lowercaseFirst(text: string): string {
   return text[0].toLowerCase() + text.slice(1);
 }
 
-function parseBaseNodeRef(spec: string): AGNodeRef {
-  const match = spec.match(/^((@?[a-z]+)|`[a-z\s|]+`)$/i);
-  invariant(match, `Invalid reference: "${spec}"`);
-  if (spec.startsWith("@")) {
-    return {
-      ref: "NodeUnion",
-      name: spec.slice(1),
-    };
-  } else if (spec.startsWith("`")) {
-    return {
-      ref: "Raw",
-      name: spec.slice(1, -1),
-    };
-  } else {
-    return {
-      ref: "Node",
-      name: spec,
-    };
-  }
-}
-
-function parseListOfNodeRef(spec: string): AGRepeatedPattern {
-  if (spec.endsWith("*")) {
-    return {
-      ref: "List",
-      of: parseBaseNodeRef(spec.slice(0, -1)),
-      min: 0,
-    };
-  } else if (spec.endsWith("+")) {
-    return {
-      ref: "List",
-      of: parseBaseNodeRef(spec.slice(0, -1)),
-      min: 1,
-    };
-  } else {
-    return parseBaseNodeRef(spec);
-  }
-}
-
-function parseSpec(spec: string): AGPattern {
-  if (spec.endsWith("?")) {
-    return {
-      ref: "Optional",
-      of: parseListOfNodeRef(spec.substring(0, spec.length - 1)),
-    };
-  } else {
-    return parseListOfNodeRef(spec);
-  }
-}
-
 /**
  * Given a NodeRef instance, returns its formatted string, e.g. "@MyNode*"
  */
@@ -320,10 +270,6 @@ function generateTypeCheckCondition(
 function parseGrammarFromPath(path: string): AGGrammar {
   const src = fs.readFileSync(path, "utf-8");
   return parseGrammarFromString(src);
-}
-
-export function parseGrammarFromString(src: string): AGGrammar {
-  return parseGrammarFromString_withOhm(src);
 }
 
 const grammar = ohm.grammar(String.raw`
@@ -560,7 +506,7 @@ function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
   return result;
 }
 
-export function parseGrammarFromString_withOhm(text: string): AGGrammar {
+export function parseGrammarFromString(text: string): AGGrammar {
   const parsed = grammar.match(text);
   if (parsed.message) {
     throw new Error(parsed.message);
@@ -569,75 +515,6 @@ export function parseGrammarFromString_withOhm(text: string): AGGrammar {
   const tree = semantics(parsed);
   tree.check(); // Will throw in case of errors
   return tree.ast;
-}
-
-export function parseGrammarFromString_withClassic(src: string): AGGrammar {
-  const lines = src
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
-
-  const unionsByName: LUT<AGUnionDef> = {};
-  const nodesByName: LUT<AGNodeDef> = {};
-
-  let currUnion: AGPattern[] | void;
-  let currNode: LUT<AGField> | void;
-
-  for (let line of lines) {
-    if (line.endsWith(":")) {
-      line = line.substring(0, line.length - 1).trim();
-
-      // NodeUnion or Node?
-      if (line.startsWith("@")) {
-        currUnion = [];
-        currNode = undefined;
-        unionsByName[line.substring(1)] = {
-          name: line.substring(1),
-          members: currUnion,
-        };
-      } else {
-        currNode = {};
-        currUnion = undefined;
-        nodesByName[line] = {
-          name: line,
-          fieldsByName: currNode,
-          fields: [], // Will be populated in a later pass
-        };
-      }
-      continue;
-    }
-
-    if (line.startsWith("|")) {
-      const union = line.substring(1).trim();
-      invariant(currUnion, "Expect a current union");
-      currUnion.push(parseBaseNodeRef(union));
-    } else {
-      const [name, ...rest] = line.split(/\s+/);
-      const spec = rest.join(" ");
-      invariant(currNode, "Expect a current node");
-      currNode[name] = { name, pattern: parseSpec(spec) };
-    }
-  }
-
-  // Populate all the fields, for easier looping later
-  for (const node of Object.values(nodesByName)) {
-    node.fields = Object.values(node.fieldsByName);
-  }
-
-  return {
-    // The first-defined node in the document is the start node
-    startNode: Object.keys(nodesByName)[0],
-
-    nodesByName,
-    nodes: Object.keys(nodesByName)
-      .sort()
-      .map((name) => nodesByName[name]),
-
-    unionsByName,
-    unions: Object.keys(unionsByName)
-      .sort()
-      .map((name) => unionsByName[name]),
-  };
 }
 
 function generateCode(grammar: AGGrammar): string {
