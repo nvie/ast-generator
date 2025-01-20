@@ -136,7 +136,7 @@ describe("checking document validity", () => {
       @Bar = Foo
       @Bar = Bar
    `),
-    ).toThrow("Duplicate definition of '@Bar'");
+    ).toThrow("Duplicate definition of 'Bar'");
   });
 
   it("thrown where there is a duplicate def (node + union)", () => {
@@ -146,7 +146,7 @@ describe("checking document validity", () => {
       Bar {}
       @Foo = Bar
    `),
-    ).toThrow("Duplicate definition of '@Foo'");
+    ).toThrow("Duplicate definition of 'Foo'");
   });
 
   it("thrown when there is an unknown reference (node)", () => {

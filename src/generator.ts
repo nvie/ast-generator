@@ -465,15 +465,15 @@ semantics.addAttribute<
   },
 });
 
-semantics.addAttribute<ohm.Node[]>("allRefs", {
+semantics.addOperation<ohm.Node[]>("allRefs", {
   _terminal() {
     return [];
   },
   _nonterminal(...children) {
-    return children.flatMap((c) => c.allRefs);
+    return children.flatMap((c) => c.allRefs());
   },
   _iter(...children) {
-    return children.flatMap((c) => c.allRefs);
+    return children.flatMap((c) => c.allRefs());
   },
   AGNodeRef_node(_nodename) {
     return [this];
@@ -485,60 +485,70 @@ semantics.addAttribute<ohm.Node[]>("allRefs", {
 
 semantics.addOperation<void>("check", {
   Start(defList): void {
-    const validNodes: AGNodeDef[] = defList.children
-      .map((d) => d.ast)
-      .filter((def) => !("members" in def));
-    const validUnions: AGUnionDef[] = defList.children
-      .map((d) => d.ast)
-      .filter((def) => "members" in def);
+    const validNames = new Set<string>();
 
-    const validNodeNames: string[] = validNodes.map((d) => d.name);
-    const validUnionNames: string[] = validUnions.map((d) => d.name);
+    const nodeDefs: AGNodeDef[] = [];
+    const unionDefs: AGUnionDef[] = [];
 
-    const unusedNodeNames: Set<string> = new Set(validNodeNames);
-    const unusedUnionNames: Set<string> = new Set(validUnionNames);
+    // Do a pass over all defined nodes
+    for (const def of defList.children) {
+      if (validNames.has(def.ast.name)) {
+        throw new Error(
+          def.source.getLineAndColumnMessage() +
+            `Duplicate definition of '${def.ast.name}'`,
+        );
+      }
+
+      validNames.add(def.ast.name);
+      const astNode = def.ast;
+      if ("members" in astNode) {
+        unionDefs.push(astNode);
+      } else {
+        nodeDefs.push(astNode);
+      }
+    }
+
+    // Do a pass over all node references
+    const nodeNames: string[] = nodeDefs.map((d) => d.name);
+    const unionNames: string[] = unionDefs.map((d) => d.name);
+
+    const unused: Set<string> = new Set(validNames);
 
     // Remove the start node's name
-    unusedNodeNames.delete(this.ast.startNode);
+    unused.delete(this.ast.startNode);
 
-    for (const ohmNode of this.allRefs as ohm.Node[]) {
+    for (const ohmNode of this.allRefs() as ohm.Node[]) {
       const astNode = ohmNode.ast;
+      unused.delete(astNode.name);
 
       // Check that all MyNode refs are valid
       if (astNode.ref === "Node") {
-        if (!validNodeNames.includes(astNode.name)) {
+        if (!nodeNames.includes(astNode.name)) {
           throw new Error(
             ohmNode.source.getLineAndColumnMessage() +
               `Cannot find '${astNode.name}'`,
           );
-        } else {
-          unusedNodeNames.delete(astNode.name);
         }
       }
 
       // Check that all @MyUnion refs are valid
       if (astNode.ref === "NodeUnion") {
-        if (!validUnionNames.includes(astNode.name)) {
+        if (!unionNames.includes(astNode.name)) {
           throw new Error(
             ohmNode.source.getLineAndColumnMessage() +
               `Cannot find '@${astNode.name}'`,
           );
-        } else {
-          unusedUnionNames.delete(astNode.name);
         }
       }
     }
 
-    if (unusedNodeNames.size > 0) {
-      // TODO: Link error to node in the source!
-      const [name] = unusedNodeNames;
-      throw new Error(`Unused definition '${name}'`);
-    }
-
-    if (unusedUnionNames.size > 0) {
-      // TODO: Link error to node in the source!
-      const [name] = unusedUnionNames;
-      throw new Error(`Unused definition '@${name}'`);
+    if (unused.size > 0) {
+      const [name] = unused;
+      const def = defList.children.find((def) => def.ast.name === name)!;
+      throw new Error(
+        def.children[0].source.getLineAndColumnMessage() +
+          `Unused definition '${"members" in def.ast ? "@" : ""}${name}'`,
+      );
     }
   },
 });
