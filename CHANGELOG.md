@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.3.0] - 2025-01-20
+
 - New definition language
 - Internals rewritten in Ohm
 
