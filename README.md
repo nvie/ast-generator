@@ -4,22 +4,25 @@
 TypeScript code generator for AST nodes based on the following grammar format:
 
 ```
-Circle:
-  cx  `number`
-  cy  `number`
-  r   `number`
+Circle {
+  cx: number
+  cy: number
+  r: number
+}
 
-Rect:
-  x      `number`
-  y      `number`
-  width  `number`
-  height `number`
+Rect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
 
-@Shape:
+@Shape =
   | Circle
   | Rect
 
-Document:
-  version `number`?
-  shapes  @Shape*
+Document {
+  version?: number
+  shapes: @Shape*
+}
 ```

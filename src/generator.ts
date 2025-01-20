@@ -1,66 +1,66 @@
 import fs from "fs";
+import * as ohm from "ohm-js";
 import prettier from "prettier";
 import invariant from "tiny-invariant";
 
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"]);
 
-function isBuiltIn(ref: BaseNodeRef): ref is RawRef {
+function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
   return ref.ref === "Raw";
 }
 
-type RawRef = { ref: "Raw"; name: string };
+type BuiltinType = { ref: "Raw"; name: string };
 
-// e.g. "SomeNode" or "@SomeUnion"
-type BaseNodeRef =
-  | RawRef // e.g. `boolean`, or `string | boolean`
+// e.g. "MyNode" or "@MyUnion"
+type AGNodeRef =
+  | BuiltinType // e.g. `boolean`, or `string | boolean`
   | { ref: "Node"; name: string }
   | { ref: "NodeUnion"; name: string };
 
-// e.g. "SomeNode+" or "@SomeUnion*"
-type MultiNodeRef =
-  | BaseNodeRef
+// e.g. "MyNode+" or "@MyUnion*"
+type AGRepeatedPattern =
+  | AGNodeRef
   | {
       ref: "List";
-      of: BaseNodeRef;
+      of: AGNodeRef;
       min: 0 | 1;
     };
 
-// e.g. "SomeNode?" or "@SomeUnion*?"
-type NodeRef =
-  | MultiNodeRef
+// e.g. "MyNode?" or "@MyUnion*?"
+type AGPattern =
+  | AGRepeatedPattern
   | {
       ref: "Optional";
-      of: MultiNodeRef;
+      of: AGRepeatedPattern;
     };
 
 // e.g. ['FloatLiteral', 'IntLiteral', '@StringExpr']
-type NodeUnion = {
+type AGUnionDef = {
   name: string;
-  members: NodeRef[];
+  members: AGPattern[];
 };
 
-type Field = {
+type AGField = {
   name: string;
-  ref: NodeRef;
+  pattern: AGPattern;
 };
 
-// e.g. { pattern: '@AssignmentPattern', expr: '@Expr' }
-type Node = {
+type AGNodeDef = {
   name: string;
-  fieldsByName: LUT<Field>;
-  fields: Field[];
+  fieldsByName: LUT<AGField>;
+  fields: AGField[];
 };
 
 type LUT<T> = { [key: string]: T };
 
-type Grammar = {
+type AGGrammar = {
   startNode: string;
 
-  nodesByName: LUT<Node>;
-  nodes: Node[]; // Sorted list of nodes
+  nodesByName: LUT<AGNodeDef>;
+  nodes: AGNodeDef[]; // Sorted list of nodes
 
-  unionsByName: LUT<NodeUnion>;
-  unions: NodeUnion[]; // Sorted list of node unions
+  unionsByName: LUT<AGUnionDef>;
+  unions: AGUnionDef[]; // Sorted list of node unions
 };
 
 function takeWhile<T>(items: T[], predicate: (item: T) => boolean): T[] {
@@ -92,115 +92,65 @@ function lowercaseFirst(text: string): string {
   return text[0].toLowerCase() + text.slice(1);
 }
 
-function parseBaseNodeRef(spec: string): BaseNodeRef {
-  const match = spec.match(/^((@?[a-z]+)|`[a-z\s|]+`)$/i);
-  invariant(match, `Invalid reference: "${spec}"`);
-  if (spec.startsWith("@")) {
-    return {
-      ref: "NodeUnion",
-      name: spec.slice(1),
-    };
-  } else if (spec.startsWith("`")) {
-    return {
-      ref: "Raw",
-      name: spec.slice(1, -1),
-    };
-  } else {
-    return {
-      ref: "Node",
-      name: spec,
-    };
-  }
-}
-
-function parseMultiNodeRef(spec: string): MultiNodeRef {
-  if (spec.endsWith("*")) {
-    return {
-      ref: "List",
-      of: parseBaseNodeRef(spec.slice(0, -1)),
-      min: 0,
-    };
-  } else if (spec.endsWith("+")) {
-    return {
-      ref: "List",
-      of: parseBaseNodeRef(spec.slice(0, -1)),
-      min: 1,
-    };
-  } else {
-    return parseBaseNodeRef(spec);
-  }
-}
-
-function parseSpec(spec: string): NodeRef {
-  if (spec.endsWith("?")) {
-    return {
-      ref: "Optional",
-      of: parseMultiNodeRef(spec.substring(0, spec.length - 1)),
-    };
-  } else {
-    return parseMultiNodeRef(spec);
-  }
-}
-
 /**
- * Given a NodeRef instance, returns its formatted string, e.g. "@SomeNode*"
+ * Given a NodeRef instance, returns its formatted string, e.g. "@MyNode*"
  */
-function serializeRef(ref: NodeRef): string {
-  if (ref.ref === "Optional") {
-    return serializeRef(ref.of) + "?";
-  } else if (ref.ref === "List") {
-    const base = serializeRef(ref.of);
-    if (ref.min > 0) {
+function serializeRef(pat: AGPattern): string {
+  if (pat.ref === "Optional") {
+    return serializeRef(pat.of) + "?";
+  } else if (pat.ref === "List") {
+    const base = serializeRef(pat.of);
+    if (pat.min > 0) {
       return base + "+";
     } else {
       return base + "*";
     }
-  } else if (ref.ref === "NodeUnion") {
-    return "@" + ref.name;
-  } else if (ref.ref === "Node") {
-    return ref.name;
+  } else if (pat.ref === "NodeUnion") {
+    return "@" + pat.name;
+  } else if (pat.ref === "Node") {
+    return pat.name;
   } else {
-    return ref.name;
+    return pat.name;
   }
 }
 
-function getBaseNodeRef(ref: NodeRef): BaseNodeRef {
-  return ref.ref === "Optional"
-    ? getBaseNodeRef(ref.of)
-    : ref.ref === "List"
-      ? getBaseNodeRef(ref.of)
-      : ref;
+function getNodeRef(pat: AGPattern): AGNodeRef {
+  return pat.ref === "Optional"
+    ? getNodeRef(pat.of)
+    : pat.ref === "List"
+      ? getNodeRef(pat.of)
+      : pat;
 }
 
-function getBareRef(ref: NodeRef): string {
-  return ref.ref === "Optional"
-    ? getBareRef(ref.of)
-    : ref.ref === "List"
-      ? getBareRef(ref.of)
-      : ref.ref === "Node"
-        ? ref.name
-        : ref.ref === "NodeUnion"
-          ? ref.name
-          : ref.name;
+function getBareRef(pat: AGPattern): string {
+  return pat.ref === "Optional"
+    ? getBareRef(pat.of)
+    : pat.ref === "List"
+      ? getBareRef(pat.of)
+      : pat.ref === "Node"
+        ? pat.name
+        : pat.ref === "NodeUnion"
+          ? pat.name
+          : pat.name;
 }
 
-function getBareRefTarget(ref: NodeRef): "Node" | "NodeUnion" | "Raw" {
-  return ref.ref === "Optional" || ref.ref === "List"
-    ? getBareRefTarget(ref.of)
-    : ref.ref;
+function getBareRefTarget(pat: AGPattern): "Node" | "NodeUnion" | "Raw" {
+  return pat.ref === "Optional" || pat.ref === "List"
+    ? getBareRefTarget(pat.of)
+    : pat.ref;
 }
 
-function getTypeScriptType(ref: NodeRef): string {
-  return ref.ref === "Optional"
-    ? getTypeScriptType(ref.of) + " | null"
-    : ref.ref === "List"
-      ? getTypeScriptType(ref.of) + "[]"
-      : isBuiltIn(ref)
-        ? ref.name
-        : ref.name;
+function getTypeScriptType(pat: AGPattern): string {
+  return pat.ref === "Optional"
+    ? getTypeScriptType(pat.of) + " | null"
+    : pat.ref === "List"
+      ? getTypeScriptType(pat.of) + "[]"
+      : isBuiltInType(pat)
+        ? pat.name
+        : pat.name;
 }
 
-function validate(grammar: Grammar) {
+function validate(grammar: AGGrammar) {
   // Keep track of which node names are referenced/used
   const referenced: Set<string> = new Set();
 
@@ -222,11 +172,11 @@ function validate(grammar: Grammar) {
         !field.name.startsWith("_"),
         `Illegal field name: "${node.name}.${field.name}" (fields starting with "_" are reserved)`,
       );
-      const bare = getBareRef(field.ref);
-      const base = getBaseNodeRef(field.ref);
+      const bare = getBareRef(field.pattern);
+      const base = getNodeRef(field.pattern);
       referenced.add(bare);
       invariant(
-        isBuiltIn(base) ||
+        isBuiltInType(base) ||
           !!grammar.unionsByName[bare] ||
           !!grammar.nodesByName[bare],
         `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`,
@@ -251,21 +201,21 @@ function validate(grammar: Grammar) {
 
 function generateAssertParam(
   fieldName: string, // actualKindValue
-  fieldRef: NodeRef, // expectedNode
+  fieldPat: AGPattern, // expectedNode
   currentContext: string,
 ): string {
   return `assert(${generateTypeCheckCondition(
-    fieldRef,
+    fieldPat,
     fieldName,
   )}, \`Invalid value for "${fieldName}" arg in ${JSON.stringify(
     currentContext,
   )} call.\\nExpected: ${serializeRef(
-    fieldRef,
+    fieldPat,
   )}\\nGot:      \${JSON.stringify(${fieldName})}\`)`;
 }
 
 function generateTypeCheckCondition(
-  expected: NodeRef,
+  expected: AGPattern,
   actualValue: string,
 ): string {
   const conditions = [];
@@ -290,7 +240,7 @@ function generateTypeCheckCondition(
     );
   } else if (expected.ref === "NodeUnion") {
     conditions.push(`is${expected.name}(${actualValue})`);
-  } else if (isBuiltIn(expected)) {
+  } else if (isBuiltInType(expected)) {
     conditions.push(
       `( ${expected.name
         .replace(/`/g, "")
@@ -317,81 +267,257 @@ function generateTypeCheckCondition(
   return conditions.map((c) => `(${c})`).join(" && ");
 }
 
-function parseGrammarFromPath(path: string): Grammar {
+function parseGrammarFromPath(path: string): AGGrammar {
   const src = fs.readFileSync(path, "utf-8");
   return parseGrammarFromString(src);
 }
 
-export function parseGrammarFromString(src: string): Grammar {
-  const lines = src
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !line.startsWith("#"));
+const grammar = ohm.grammar(String.raw`
+    AstGeneratorGrammar {
+      Start = Def+
 
-  const unionsByName: LUT<NodeUnion> = {};
-  const nodesByName: LUT<Node> = {};
+      // Override Ohm's built-in definition of space
+      space := "\u0000".." " | comment
+      comment = "#" (~"\n" any)*
+      nodename (a node name) = upper alnum*
+      identifier (an identifier) = letter alnum*
 
-  let currUnion: NodeRef[] | void;
-  let currNode: LUT<Field> | void;
+      Def
+        = AGNodeDef
+        | AGUnionDef
 
-  for (let line of lines) {
-    if (line.endsWith(":")) {
-      line = line.substring(0, line.length - 1).trim();
+      AGNodeDef
+        = nodename "{" AGField* "}"
 
-      // NodeUnion or Node?
-      if (line.startsWith("@")) {
-        currUnion = [];
-        currNode = undefined;
-        unionsByName[line.substring(1)] = {
-          name: line.substring(1),
-          members: currUnion,
-        };
+      AGUnionDef
+        = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
+
+      AGField
+        = identifier "?"? ":" AGRepeatedPattern
+      
+      AGRepeatedPattern
+        = AGNodeRef ("+" | "*")?
+
+      AGNodeRef
+        = BuiltinTypeUnion  -- builtin
+        | nodename          -- node
+        | "@" nodename      -- union
+
+      BuiltinTypeUnion
+        = NonemptyListOf<BuiltinType, "|">
+
+      // e.g. \`boolean\`, or \`string | boolean\`
+      BuiltinType
+        = "string"
+        | "number"
+        | "boolean"
+        | "null"
+    }
+  `);
+
+const semantics = grammar.createSemantics();
+
+semantics.addAttribute<
+  | AGGrammar
+  | AGNodeDef
+  | AGUnionDef
+  | AGField
+  | AGRepeatedPattern
+  | AGPattern
+  | BuiltinType
+  | string
+>("ast", {
+  nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
+  identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
+
+  Start(defList): AGGrammar {
+    const defs = defList.children.map((d) => d.ast as AGNodeDef | AGUnionDef);
+
+    const unionsByName: LUT<AGUnionDef> = {};
+    const nodesByName: LUT<AGNodeDef> = {};
+
+    for (const def of defs) {
+      if ("members" in def) {
+        unionsByName[def.name] = def;
       } else {
-        currNode = {};
-        currUnion = undefined;
-        nodesByName[line] = {
-          name: line,
-          fieldsByName: currNode,
-          fields: [], // Will be populated in a later pass
-        };
+        nodesByName[def.name] = def;
       }
-      continue;
     }
 
-    if (line.startsWith("|")) {
-      const union = line.substring(1).trim();
-      invariant(currUnion, "Expect a current union");
-      currUnion.push(parseBaseNodeRef(union));
-    } else {
-      const [name, ...rest] = line.split(/\s+/);
-      const spec = rest.join(" ");
-      invariant(currNode, "Expect a current node");
-      currNode[name] = { name, ref: parseSpec(spec) };
+    return {
+      // The first-defined node in the document is the start node
+      startNode: Object.keys(nodesByName)[0],
+
+      nodesByName,
+      nodes: Object.keys(nodesByName)
+        .sort()
+        .map((name) => nodesByName[name]),
+
+      unionsByName,
+      unions: Object.keys(unionsByName)
+        .sort()
+        .map((name) => unionsByName[name]),
+    };
+  },
+
+  AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
+    const fields = fieldList.children.map((f) => f.ast);
+    const fieldsByName = index(fields, (f) => f.name);
+    return {
+      name: name.ast,
+      fieldsByName,
+      fields,
+    };
+  },
+
+  AGUnionDef(_at, name, _eq, _pipe, memberList): AGUnionDef {
+    return {
+      name: name.ast,
+      members: memberList.asIteration().children.map((m) => m.ast),
+    };
+  },
+
+  AGField(name, qmark, _colon, patternNode): AGField {
+    let pattern = patternNode.ast;
+    if (qmark.children.length > 0) {
+      pattern = { ref: "Optional", of: pattern };
     }
+    return { name: name.ast, pattern };
+  },
+
+  AGRepeatedPattern(refNode, multiplier): AGRepeatedPattern {
+    let ref = refNode.ast;
+    if (multiplier.children.length > 0) {
+      const op = multiplier.children[0].sourceString;
+      ref = { ref: "List", of: ref, min: op === "+" ? 1 : 0 };
+    }
+    return ref;
+  },
+
+  AGNodeRef_node(nodename): AGNodeRef {
+    return { ref: "Node", name: nodename.ast };
+  },
+
+  AGNodeRef_union(_at, nodename): AGNodeRef {
+    return { ref: "NodeUnion", name: nodename.ast };
+  },
+
+  BuiltinTypeUnion(list): BuiltinType {
+    return {
+      ref: "Raw",
+      name: list.sourceString,
+    };
+  },
+});
+
+semantics.addOperation<ohm.Node[]>("allRefs", {
+  _terminal() {
+    return [];
+  },
+  _nonterminal(...children) {
+    return children.flatMap((c) => c.allRefs());
+  },
+  _iter(...children) {
+    return children.flatMap((c) => c.allRefs());
+  },
+  AGNodeRef_node(_nodename) {
+    return [this];
+  },
+  AGNodeRef_union(_at, _nodename) {
+    return [this];
+  },
+});
+
+semantics.addOperation<void>("check", {
+  Start(defList): void {
+    const validNames = new Set<string>();
+
+    const nodeDefs: AGNodeDef[] = [];
+    const unionDefs: AGUnionDef[] = [];
+
+    // Do a pass over all defined nodes
+    for (const def of defList.children) {
+      if (validNames.has(def.ast.name)) {
+        throw new Error(
+          def.source.getLineAndColumnMessage() +
+            `Duplicate definition of '${def.ast.name}'`,
+        );
+      }
+
+      validNames.add(def.ast.name);
+      const astNode = def.ast;
+      if ("members" in astNode) {
+        unionDefs.push(astNode);
+      } else {
+        nodeDefs.push(astNode);
+      }
+    }
+
+    // Do a pass over all node references
+    const nodeNames: string[] = nodeDefs.map((d) => d.name);
+    const unionNames: string[] = unionDefs.map((d) => d.name);
+
+    const unused: Set<string> = new Set(validNames);
+
+    // Remove the start node's name
+    unused.delete(this.ast.startNode);
+
+    for (const ohmNode of this.allRefs() as ohm.Node[]) {
+      const astNode = ohmNode.ast;
+      unused.delete(astNode.name);
+
+      // Check that all MyNode refs are valid
+      if (astNode.ref === "Node") {
+        if (!nodeNames.includes(astNode.name)) {
+          throw new Error(
+            ohmNode.source.getLineAndColumnMessage() +
+              `Cannot find '${astNode.name}'`,
+          );
+        }
+      }
+
+      // Check that all @MyUnion refs are valid
+      if (astNode.ref === "NodeUnion") {
+        if (!unionNames.includes(astNode.name)) {
+          throw new Error(
+            ohmNode.source.getLineAndColumnMessage() +
+              `Cannot find '@${astNode.name}'`,
+          );
+        }
+      }
+    }
+
+    if (unused.size > 0) {
+      const [name] = unused;
+      const def = defList.children.find((def) => def.ast.name === name)!;
+      throw new Error(
+        def.children[0].source.getLineAndColumnMessage() +
+          `Unused definition '${"members" in def.ast ? "@" : ""}${name}'`,
+      );
+    }
+  },
+});
+
+function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
+  const result: LUT<T> = {};
+  for (const item of arr) {
+    result[keyFn(item)] = item;
   }
-
-  // Populate all the fields, for easier looping later
-  for (const node of Object.values(nodesByName)) {
-    node.fields = Object.values(node.fieldsByName);
-  }
-
-  return {
-    // The first-defined node in the document is the start node
-    startNode: Object.keys(nodesByName)[0],
-
-    nodesByName,
-    nodes: Object.keys(nodesByName)
-      .sort()
-      .map((name) => nodesByName[name]),
-
-    unionsByName,
-    unions: Object.keys(unionsByName)
-      .sort()
-      .map((name) => unionsByName[name]),
-  };
+  return result;
 }
 
-function generateCode(grammar: Grammar): string {
+export function parseGrammarFromString(text: string): AGGrammar {
+  const parsed = grammar.match(text);
+  if (parsed.message) {
+    throw new Error(parsed.message);
+  }
+
+  const tree = semantics(parsed);
+  tree.check(); // Will throw in case of errors
+  return tree.ast;
+}
+
+function generateCode(grammar: AGGrammar): string {
   // Will throw in case of errors
   validate(grammar);
 
@@ -480,7 +606,8 @@ function generateCode(grammar: Grammar): string {
                 _kind: ${JSON.stringify(node.name)}
                 ${node.fields
                   .map(
-                    (field) => `${field.name}: ${getTypeScriptType(field.ref)}`,
+                    (field) =>
+                      `${field.name}: ${getTypeScriptType(field.pattern)}`,
                   )
                   .join("\n")}
                 range: Range
@@ -494,13 +621,13 @@ function generateCode(grammar: Grammar): string {
       takeWhile(
         node.fields.slice().reverse(),
         (field) =>
-          field.ref.ref === "Optional" ||
-          (field.ref.ref === "List" && field.ref.min === 0),
+          field.pattern.ref === "Optional" ||
+          (field.pattern.ref === "List" && field.pattern.min === 0),
       ).map((field) => field.name),
     );
 
     const runtimeTypeChecks = node.fields.map((field) =>
-      generateAssertParam(field.name, field.ref, node.name),
+      generateAssertParam(field.name, field.pattern, node.name),
     );
     runtimeTypeChecks.push(`assertRange(range, ${JSON.stringify(node.name)})`);
 
@@ -508,9 +635,9 @@ function generateCode(grammar: Grammar): string {
       export function ${lowercaseFirst(node.name)}(${[
         ...node.fields.map((field) => {
           const key = field.name;
-          const type = getTypeScriptType(field.ref);
+          const type = getTypeScriptType(field.pattern);
           return optionals.has(field.name)
-            ? `${key}: ${type} = ${field.ref.ref === "Optional" ? "null" : "[]"}`
+            ? `${key}: ${type} = ${field.pattern.ref === "Optional" ? "null" : "[]"}`
             : `${key}: ${type}`;
         }),
         "range: Range = [0, 0]",
@@ -550,13 +677,13 @@ function generateCode(grammar: Grammar): string {
 
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
-      (field) => !isBuiltIn(getBaseNodeRef(field.ref)),
+      (field) => !isBuiltInType(getNodeRef(field.pattern)),
     );
 
     output.push(`case ${JSON.stringify(node.name)}:`);
     output.push(`  visitor.${node.name}?.(node, context);`);
     for (const field of fields) {
-      switch (field.ref.ref) {
+      switch (field.pattern.ref) {
         case "Node":
         case "NodeUnion":
           output.push(`  visit(node.${field.name}, visitor, context);`);

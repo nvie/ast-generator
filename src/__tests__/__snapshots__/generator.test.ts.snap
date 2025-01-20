@@ -6,15 +6,15 @@ exports[`parsing grammars > parses a grammar 1`] = `
     {
       "fields": [
         {
-          "name": "x0:",
-          "ref": {
+          "name": "x0",
+          "pattern": {
             "name": "string",
             "ref": "Raw",
           },
         },
         {
-          "name": "x1:",
-          "ref": {
+          "name": "x1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "string",
@@ -24,8 +24,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "x2:",
-          "ref": {
+          "name": "x2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "string",
@@ -35,8 +35,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "x3:",
-          "ref": {
+          "name": "x3",
+          "pattern": {
             "of": {
               "name": "string",
               "ref": "Raw",
@@ -45,15 +45,15 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y0:",
-          "ref": {
+          "name": "y0",
+          "pattern": {
             "name": "Xyz",
             "ref": "NodeUnion",
           },
         },
         {
-          "name": "y1:",
-          "ref": {
+          "name": "y1",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Xyz",
@@ -63,8 +63,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y2:",
-          "ref": {
+          "name": "y2",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Xyz",
@@ -74,8 +74,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y3:",
-          "ref": {
+          "name": "y3",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -84,8 +84,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y4:",
-          "ref": {
+          "name": "y4",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -94,15 +94,15 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "z0:",
-          "ref": {
+          "name": "z0",
+          "pattern": {
             "name": "Pqr",
             "ref": "Node",
           },
         },
         {
-          "name": "z1:",
-          "ref": {
+          "name": "z1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Pqr",
@@ -112,8 +112,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "z2:",
-          "ref": {
+          "name": "z2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Pqr",
@@ -123,8 +123,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "z3:",
-          "ref": {
+          "name": "z3",
+          "pattern": {
             "of": {
               "name": "Pqr",
               "ref": "Node",
@@ -134,16 +134,16 @@ exports[`parsing grammars > parses a grammar 1`] = `
         },
       ],
       "fieldsByName": {
-        "x0:": {
-          "name": "x0:",
-          "ref": {
+        "x0": {
+          "name": "x0",
+          "pattern": {
             "name": "string",
             "ref": "Raw",
           },
         },
-        "x1:": {
-          "name": "x1:",
-          "ref": {
+        "x1": {
+          "name": "x1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "string",
@@ -152,9 +152,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "x2:": {
-          "name": "x2:",
-          "ref": {
+        "x2": {
+          "name": "x2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "string",
@@ -163,9 +163,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "x3:": {
-          "name": "x3:",
-          "ref": {
+        "x3": {
+          "name": "x3",
+          "pattern": {
             "of": {
               "name": "string",
               "ref": "Raw",
@@ -173,16 +173,16 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "Optional",
           },
         },
-        "y0:": {
-          "name": "y0:",
-          "ref": {
+        "y0": {
+          "name": "y0",
+          "pattern": {
             "name": "Xyz",
             "ref": "NodeUnion",
           },
         },
-        "y1:": {
-          "name": "y1:",
-          "ref": {
+        "y1": {
+          "name": "y1",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Xyz",
@@ -191,9 +191,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "y2:": {
-          "name": "y2:",
-          "ref": {
+        "y2": {
+          "name": "y2",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Xyz",
@@ -202,9 +202,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "y3:": {
-          "name": "y3:",
-          "ref": {
+        "y3": {
+          "name": "y3",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -212,9 +212,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "Optional",
           },
         },
-        "y4:": {
-          "name": "y4:",
-          "ref": {
+        "y4": {
+          "name": "y4",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -222,16 +222,16 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "Optional",
           },
         },
-        "z0:": {
-          "name": "z0:",
-          "ref": {
+        "z0": {
+          "name": "z0",
+          "pattern": {
             "name": "Pqr",
             "ref": "Node",
           },
         },
-        "z1:": {
-          "name": "z1:",
-          "ref": {
+        "z1": {
+          "name": "z1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Pqr",
@@ -240,9 +240,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "z2:": {
-          "name": "z2:",
-          "ref": {
+        "z2": {
+          "name": "z2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Pqr",
@@ -251,9 +251,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "z3:": {
-          "name": "z3:",
-          "ref": {
+        "z3": {
+          "name": "z3",
+          "pattern": {
             "of": {
               "name": "Pqr",
               "ref": "Node",
@@ -267,8 +267,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
     {
       "fields": [
         {
-          "name": "p:",
-          "ref": {
+          "name": "p",
+          "pattern": {
             "of": {
               "name": "number",
               "ref": "Raw",
@@ -278,9 +278,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
         },
       ],
       "fieldsByName": {
-        "p:": {
-          "name": "p:",
-          "ref": {
+        "p": {
+          "name": "p",
+          "pattern": {
             "of": {
               "name": "number",
               "ref": "Raw",
@@ -294,17 +294,17 @@ exports[`parsing grammars > parses a grammar 1`] = `
     {
       "fields": [
         {
-          "name": "s:",
-          "ref": {
+          "name": "s",
+          "pattern": {
             "name": "number",
             "ref": "Raw",
           },
         },
       ],
       "fieldsByName": {
-        "s:": {
-          "name": "s:",
-          "ref": {
+        "s": {
+          "name": "s",
+          "pattern": {
             "name": "number",
             "ref": "Raw",
           },
@@ -317,15 +317,15 @@ exports[`parsing grammars > parses a grammar 1`] = `
     "Abc": {
       "fields": [
         {
-          "name": "x0:",
-          "ref": {
+          "name": "x0",
+          "pattern": {
             "name": "string",
             "ref": "Raw",
           },
         },
         {
-          "name": "x1:",
-          "ref": {
+          "name": "x1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "string",
@@ -335,8 +335,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "x2:",
-          "ref": {
+          "name": "x2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "string",
@@ -346,8 +346,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "x3:",
-          "ref": {
+          "name": "x3",
+          "pattern": {
             "of": {
               "name": "string",
               "ref": "Raw",
@@ -356,15 +356,15 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y0:",
-          "ref": {
+          "name": "y0",
+          "pattern": {
             "name": "Xyz",
             "ref": "NodeUnion",
           },
         },
         {
-          "name": "y1:",
-          "ref": {
+          "name": "y1",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Xyz",
@@ -374,8 +374,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y2:",
-          "ref": {
+          "name": "y2",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Xyz",
@@ -385,8 +385,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y3:",
-          "ref": {
+          "name": "y3",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -395,8 +395,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "y4:",
-          "ref": {
+          "name": "y4",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -405,15 +405,15 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "z0:",
-          "ref": {
+          "name": "z0",
+          "pattern": {
             "name": "Pqr",
             "ref": "Node",
           },
         },
         {
-          "name": "z1:",
-          "ref": {
+          "name": "z1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Pqr",
@@ -423,8 +423,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "z2:",
-          "ref": {
+          "name": "z2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Pqr",
@@ -434,8 +434,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
           },
         },
         {
-          "name": "z3:",
-          "ref": {
+          "name": "z3",
+          "pattern": {
             "of": {
               "name": "Pqr",
               "ref": "Node",
@@ -445,16 +445,16 @@ exports[`parsing grammars > parses a grammar 1`] = `
         },
       ],
       "fieldsByName": {
-        "x0:": {
-          "name": "x0:",
-          "ref": {
+        "x0": {
+          "name": "x0",
+          "pattern": {
             "name": "string",
             "ref": "Raw",
           },
         },
-        "x1:": {
-          "name": "x1:",
-          "ref": {
+        "x1": {
+          "name": "x1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "string",
@@ -463,9 +463,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "x2:": {
-          "name": "x2:",
-          "ref": {
+        "x2": {
+          "name": "x2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "string",
@@ -474,9 +474,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "x3:": {
-          "name": "x3:",
-          "ref": {
+        "x3": {
+          "name": "x3",
+          "pattern": {
             "of": {
               "name": "string",
               "ref": "Raw",
@@ -484,16 +484,16 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "Optional",
           },
         },
-        "y0:": {
-          "name": "y0:",
-          "ref": {
+        "y0": {
+          "name": "y0",
+          "pattern": {
             "name": "Xyz",
             "ref": "NodeUnion",
           },
         },
-        "y1:": {
-          "name": "y1:",
-          "ref": {
+        "y1": {
+          "name": "y1",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Xyz",
@@ -502,9 +502,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "y2:": {
-          "name": "y2:",
-          "ref": {
+        "y2": {
+          "name": "y2",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Xyz",
@@ -513,9 +513,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "y3:": {
-          "name": "y3:",
-          "ref": {
+        "y3": {
+          "name": "y3",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -523,9 +523,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "Optional",
           },
         },
-        "y4:": {
-          "name": "y4:",
-          "ref": {
+        "y4": {
+          "name": "y4",
+          "pattern": {
             "of": {
               "name": "Xyz",
               "ref": "NodeUnion",
@@ -533,16 +533,16 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "Optional",
           },
         },
-        "z0:": {
-          "name": "z0:",
-          "ref": {
+        "z0": {
+          "name": "z0",
+          "pattern": {
             "name": "Pqr",
             "ref": "Node",
           },
         },
-        "z1:": {
-          "name": "z1:",
-          "ref": {
+        "z1": {
+          "name": "z1",
+          "pattern": {
             "min": 1,
             "of": {
               "name": "Pqr",
@@ -551,9 +551,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "z2:": {
-          "name": "z2:",
-          "ref": {
+        "z2": {
+          "name": "z2",
+          "pattern": {
             "min": 0,
             "of": {
               "name": "Pqr",
@@ -562,9 +562,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "ref": "List",
           },
         },
-        "z3:": {
-          "name": "z3:",
-          "ref": {
+        "z3": {
+          "name": "z3",
+          "pattern": {
             "of": {
               "name": "Pqr",
               "ref": "Node",
@@ -578,8 +578,8 @@ exports[`parsing grammars > parses a grammar 1`] = `
     "Pqr": {
       "fields": [
         {
-          "name": "p:",
-          "ref": {
+          "name": "p",
+          "pattern": {
             "of": {
               "name": "number",
               "ref": "Raw",
@@ -589,9 +589,9 @@ exports[`parsing grammars > parses a grammar 1`] = `
         },
       ],
       "fieldsByName": {
-        "p:": {
-          "name": "p:",
-          "ref": {
+        "p": {
+          "name": "p",
+          "pattern": {
             "of": {
               "name": "number",
               "ref": "Raw",
@@ -605,17 +605,17 @@ exports[`parsing grammars > parses a grammar 1`] = `
     "Stu": {
       "fields": [
         {
-          "name": "s:",
-          "ref": {
+          "name": "s",
+          "pattern": {
             "name": "number",
             "ref": "Raw",
           },
         },
       ],
       "fieldsByName": {
-        "s:": {
-          "name": "s:",
-          "ref": {
+        "s": {
+          "name": "s",
+          "pattern": {
             "name": "number",
             "ref": "Raw",
           },

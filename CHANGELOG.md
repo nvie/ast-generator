@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+- New definition language
+- Internals rewritten in Ohm
+
 ## [0.2.4] - 2025-01-09
 
 - Add support for `null` inside literal field types

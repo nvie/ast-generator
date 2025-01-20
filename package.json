@@ -2,10 +2,10 @@
   "name": "ast-generator",
   "version": "0.2.4",
   "description": "Helper to generate a TypeScript or JavaScript module for an arbitrary AST definition from a specification.",
-  "bin": {
-    "generate-ast": "./dist/index.js"
-  },
   "type": "module",
+  "bin": {
+    "generate-ast": "./dist/cli.js"
+  },
   "files": [
     "dist/",
     "README.md"
@@ -46,9 +46,10 @@
     "vitest": "^3.0.2"
   },
   "peerDependencies": {
-    "commander": "^13.0.0",
-    "prettier": "^3.4.2",
-    "tiny-invariant": "^1.3.3",
+    "commander": "^13",
+    "ohm-js": "^17",
+    "prettier": "^3",
+    "tiny-invariant": "^1",
     "typescript": "^4 || ^5"
   },
   "sideEffects": false
