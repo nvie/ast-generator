@@ -344,7 +344,7 @@ const grammar = ohm.grammar(String.raw`
         = nodename "{" AGField* "}"
 
       AGUnionDef
-        = "@" nodename "=" NonemptyListOf<AGNodeRef, "|">
+        = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
 
       AGField
         = identifier "?"? ":" AGNodeRef ("+" | "*")?
@@ -421,7 +421,7 @@ semantics.addAttribute<
     };
   },
 
-  AGUnionDef(_at, name, _eq, memberList): AGUnionDef {
+  AGUnionDef(_at, name, _eq, _pipe, memberList): AGUnionDef {
     return {
       name: name.ast,
       members: memberList.asIteration().children.map((m) => m.ast),
