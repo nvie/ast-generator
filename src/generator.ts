@@ -5,44 +5,44 @@ import invariant from "tiny-invariant";
 
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"]);
 
-function isBuiltInType(ref: AGBaseNodeRef): ref is BuiltinType {
+function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
   return ref.ref === "Raw";
 }
 
 type BuiltinType = { ref: "Raw"; name: string };
 
 // e.g. "MyNode" or "@MyUnion"
-type AGBaseNodeRef =
+type AGNodeRef =
   | BuiltinType // e.g. `boolean`, or `string | boolean`
   | { ref: "Node"; name: string }
   | { ref: "NodeUnion"; name: string };
 
 // e.g. "MyNode+" or "@MyUnion*"
-type AGPattern =
-  | AGBaseNodeRef
+type AGRepeatedPattern =
+  | AGNodeRef
   | {
       ref: "List";
-      of: AGBaseNodeRef;
+      of: AGNodeRef;
       min: 0 | 1;
     };
 
 // e.g. "MyNode?" or "@MyUnion*?"
-type AGNodeRef =
-  | AGPattern
+type AGPattern =
+  | AGRepeatedPattern
   | {
       ref: "Optional";
-      of: AGPattern;
+      of: AGRepeatedPattern;
     };
 
 // e.g. ['FloatLiteral', 'IntLiteral', '@StringExpr']
 type AGUnionDef = {
   name: string;
-  members: AGNodeRef[];
+  members: AGPattern[];
 };
 
 type AGField = {
   name: string;
-  ref: AGNodeRef;
+  pattern: AGPattern;
 };
 
 type AGNodeDef = {
@@ -92,7 +92,7 @@ function lowercaseFirst(text: string): string {
   return text[0].toLowerCase() + text.slice(1);
 }
 
-function parseBaseNodeRef(spec: string): AGBaseNodeRef {
+function parseBaseNodeRef(spec: string): AGNodeRef {
   const match = spec.match(/^((@?[a-z]+)|`[a-z\s|]+`)$/i);
   invariant(match, `Invalid reference: "${spec}"`);
   if (spec.startsWith("@")) {
@@ -113,7 +113,7 @@ function parseBaseNodeRef(spec: string): AGBaseNodeRef {
   }
 }
 
-function parseListOfNodeRef(spec: string): AGPattern {
+function parseListOfNodeRef(spec: string): AGRepeatedPattern {
   if (spec.endsWith("*")) {
     return {
       ref: "List",
@@ -131,7 +131,7 @@ function parseListOfNodeRef(spec: string): AGPattern {
   }
 }
 
-function parseSpec(spec: string): AGNodeRef {
+function parseSpec(spec: string): AGPattern {
   if (spec.endsWith("?")) {
     return {
       ref: "Optional",
@@ -145,59 +145,59 @@ function parseSpec(spec: string): AGNodeRef {
 /**
  * Given a NodeRef instance, returns its formatted string, e.g. "@MyNode*"
  */
-function serializeRef(ref: AGNodeRef): string {
-  if (ref.ref === "Optional") {
-    return serializeRef(ref.of) + "?";
-  } else if (ref.ref === "List") {
-    const base = serializeRef(ref.of);
-    if (ref.min > 0) {
+function serializeRef(pat: AGPattern): string {
+  if (pat.ref === "Optional") {
+    return serializeRef(pat.of) + "?";
+  } else if (pat.ref === "List") {
+    const base = serializeRef(pat.of);
+    if (pat.min > 0) {
       return base + "+";
     } else {
       return base + "*";
     }
-  } else if (ref.ref === "NodeUnion") {
-    return "@" + ref.name;
-  } else if (ref.ref === "Node") {
-    return ref.name;
+  } else if (pat.ref === "NodeUnion") {
+    return "@" + pat.name;
+  } else if (pat.ref === "Node") {
+    return pat.name;
   } else {
-    return ref.name;
+    return pat.name;
   }
 }
 
-function getBaseNodeRef(ref: AGNodeRef): AGBaseNodeRef {
-  return ref.ref === "Optional"
-    ? getBaseNodeRef(ref.of)
-    : ref.ref === "List"
-      ? getBaseNodeRef(ref.of)
-      : ref;
+function getNodeRef(pat: AGPattern): AGNodeRef {
+  return pat.ref === "Optional"
+    ? getNodeRef(pat.of)
+    : pat.ref === "List"
+      ? getNodeRef(pat.of)
+      : pat;
 }
 
-function getBareRef(ref: AGNodeRef): string {
-  return ref.ref === "Optional"
-    ? getBareRef(ref.of)
-    : ref.ref === "List"
-      ? getBareRef(ref.of)
-      : ref.ref === "Node"
-        ? ref.name
-        : ref.ref === "NodeUnion"
-          ? ref.name
-          : ref.name;
+function getBareRef(pat: AGPattern): string {
+  return pat.ref === "Optional"
+    ? getBareRef(pat.of)
+    : pat.ref === "List"
+      ? getBareRef(pat.of)
+      : pat.ref === "Node"
+        ? pat.name
+        : pat.ref === "NodeUnion"
+          ? pat.name
+          : pat.name;
 }
 
-function getBareRefTarget(ref: AGNodeRef): "Node" | "NodeUnion" | "Raw" {
-  return ref.ref === "Optional" || ref.ref === "List"
-    ? getBareRefTarget(ref.of)
-    : ref.ref;
+function getBareRefTarget(pat: AGPattern): "Node" | "NodeUnion" | "Raw" {
+  return pat.ref === "Optional" || pat.ref === "List"
+    ? getBareRefTarget(pat.of)
+    : pat.ref;
 }
 
-function getTypeScriptType(ref: AGNodeRef): string {
-  return ref.ref === "Optional"
-    ? getTypeScriptType(ref.of) + " | null"
-    : ref.ref === "List"
-      ? getTypeScriptType(ref.of) + "[]"
-      : isBuiltInType(ref)
-        ? ref.name
-        : ref.name;
+function getTypeScriptType(pat: AGPattern): string {
+  return pat.ref === "Optional"
+    ? getTypeScriptType(pat.of) + " | null"
+    : pat.ref === "List"
+      ? getTypeScriptType(pat.of) + "[]"
+      : isBuiltInType(pat)
+        ? pat.name
+        : pat.name;
 }
 
 function validate(grammar: AGGrammar) {
@@ -222,8 +222,8 @@ function validate(grammar: AGGrammar) {
         !field.name.startsWith("_"),
         `Illegal field name: "${node.name}.${field.name}" (fields starting with "_" are reserved)`,
       );
-      const bare = getBareRef(field.ref);
-      const base = getBaseNodeRef(field.ref);
+      const bare = getBareRef(field.pattern);
+      const base = getNodeRef(field.pattern);
       referenced.add(bare);
       invariant(
         isBuiltInType(base) ||
@@ -251,21 +251,21 @@ function validate(grammar: AGGrammar) {
 
 function generateAssertParam(
   fieldName: string, // actualKindValue
-  fieldRef: AGNodeRef, // expectedNode
+  fieldPat: AGPattern, // expectedNode
   currentContext: string,
 ): string {
   return `assert(${generateTypeCheckCondition(
-    fieldRef,
+    fieldPat,
     fieldName,
   )}, \`Invalid value for "${fieldName}" arg in ${JSON.stringify(
     currentContext,
   )} call.\\nExpected: ${serializeRef(
-    fieldRef,
+    fieldPat,
   )}\\nGot:      \${JSON.stringify(${fieldName})}\`)`;
 }
 
 function generateTypeCheckCondition(
-  expected: AGNodeRef,
+  expected: AGPattern,
   actualValue: string,
 ): string {
   const conditions = [];
@@ -347,9 +347,9 @@ const grammar = ohm.grammar(String.raw`
         = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
 
       AGField
-        = identifier "?"? ":" AGPattern
+        = identifier "?"? ":" AGRepeatedPattern
       
-      AGPattern
+      AGRepeatedPattern
         = AGNodeRef ("+" | "*")?
 
       AGNodeRef
@@ -376,8 +376,8 @@ semantics.addAttribute<
   | AGNodeDef
   | AGUnionDef
   | AGField
+  | AGRepeatedPattern
   | AGPattern
-  | AGNodeRef
   | BuiltinType
   | string
 >("ast", {
@@ -431,15 +431,15 @@ semantics.addAttribute<
     };
   },
 
-  AGField(name, qmark, _colon, pattern): AGField {
-    let ref = pattern.ast;
+  AGField(name, qmark, _colon, patternNode): AGField {
+    let pattern = patternNode.ast;
     if (qmark.children.length > 0) {
-      ref = { ref: "Optional", of: ref };
+      pattern = { ref: "Optional", of: pattern };
     }
-    return { name: name.ast, ref };
+    return { name: name.ast, pattern };
   },
 
-  AGPattern(refNode, multiplier): AGPattern {
+  AGRepeatedPattern(refNode, multiplier): AGRepeatedPattern {
     let ref = refNode.ast;
     if (multiplier.children.length > 0) {
       const op = multiplier.children[0].sourceString;
@@ -448,11 +448,11 @@ semantics.addAttribute<
     return ref;
   },
 
-  AGNodeRef_node(nodename): AGBaseNodeRef {
+  AGNodeRef_node(nodename): AGNodeRef {
     return { ref: "Node", name: nodename.ast };
   },
 
-  AGNodeRef_union(_at, nodename): AGBaseNodeRef {
+  AGNodeRef_union(_at, nodename): AGNodeRef {
     return { ref: "NodeUnion", name: nodename.ast };
   },
 
@@ -580,7 +580,7 @@ export function parseGrammarFromString_withClassic(src: string): AGGrammar {
   const unionsByName: LUT<AGUnionDef> = {};
   const nodesByName: LUT<AGNodeDef> = {};
 
-  let currUnion: AGNodeRef[] | void;
+  let currUnion: AGPattern[] | void;
   let currNode: LUT<AGField> | void;
 
   for (let line of lines) {
@@ -615,7 +615,7 @@ export function parseGrammarFromString_withClassic(src: string): AGGrammar {
       const [name, ...rest] = line.split(/\s+/);
       const spec = rest.join(" ");
       invariant(currNode, "Expect a current node");
-      currNode[name] = { name, ref: parseSpec(spec) };
+      currNode[name] = { name, pattern: parseSpec(spec) };
     }
   }
 
@@ -729,7 +729,8 @@ function generateCode(grammar: AGGrammar): string {
                 _kind: ${JSON.stringify(node.name)}
                 ${node.fields
                   .map(
-                    (field) => `${field.name}: ${getTypeScriptType(field.ref)}`,
+                    (field) =>
+                      `${field.name}: ${getTypeScriptType(field.pattern)}`,
                   )
                   .join("\n")}
                 range: Range
@@ -743,13 +744,13 @@ function generateCode(grammar: AGGrammar): string {
       takeWhile(
         node.fields.slice().reverse(),
         (field) =>
-          field.ref.ref === "Optional" ||
-          (field.ref.ref === "List" && field.ref.min === 0),
+          field.pattern.ref === "Optional" ||
+          (field.pattern.ref === "List" && field.pattern.min === 0),
       ).map((field) => field.name),
     );
 
     const runtimeTypeChecks = node.fields.map((field) =>
-      generateAssertParam(field.name, field.ref, node.name),
+      generateAssertParam(field.name, field.pattern, node.name),
     );
     runtimeTypeChecks.push(`assertRange(range, ${JSON.stringify(node.name)})`);
 
@@ -757,9 +758,9 @@ function generateCode(grammar: AGGrammar): string {
       export function ${lowercaseFirst(node.name)}(${[
         ...node.fields.map((field) => {
           const key = field.name;
-          const type = getTypeScriptType(field.ref);
+          const type = getTypeScriptType(field.pattern);
           return optionals.has(field.name)
-            ? `${key}: ${type} = ${field.ref.ref === "Optional" ? "null" : "[]"}`
+            ? `${key}: ${type} = ${field.pattern.ref === "Optional" ? "null" : "[]"}`
             : `${key}: ${type}`;
         }),
         "range: Range = [0, 0]",
@@ -799,13 +800,13 @@ function generateCode(grammar: AGGrammar): string {
 
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
-      (field) => !isBuiltInType(getBaseNodeRef(field.ref)),
+      (field) => !isBuiltInType(getNodeRef(field.pattern)),
     );
 
     output.push(`case ${JSON.stringify(node.name)}:`);
     output.push(`  visitor.${node.name}?.(node, context);`);
     for (const field of fields) {
-      switch (field.ref.ref) {
+      switch (field.pattern.ref) {
         case "Node":
         case "NodeUnion":
           output.push(`  visit(node.${field.name}, visitor, context);`);
