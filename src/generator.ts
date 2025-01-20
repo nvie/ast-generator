@@ -18,7 +18,7 @@ type AGBaseNodeRef =
   | { ref: "NodeUnion"; name: string };
 
 // e.g. "MyNode+" or "@MyUnion*"
-type MultiNodeRef =
+type AGPattern =
   | AGBaseNodeRef
   | {
       ref: "List";
@@ -28,10 +28,10 @@ type MultiNodeRef =
 
 // e.g. "MyNode?" or "@MyUnion*?"
 type AGNodeRef =
-  | MultiNodeRef
+  | AGPattern
   | {
       ref: "Optional";
-      of: MultiNodeRef;
+      of: AGPattern;
     };
 
 // e.g. ['FloatLiteral', 'IntLiteral', '@StringExpr']
@@ -113,7 +113,7 @@ function parseBaseNodeRef(spec: string): AGBaseNodeRef {
   }
 }
 
-function parseMultiNodeRef(spec: string): MultiNodeRef {
+function parseListOfNodeRef(spec: string): AGPattern {
   if (spec.endsWith("*")) {
     return {
       ref: "List",
@@ -135,10 +135,10 @@ function parseSpec(spec: string): AGNodeRef {
   if (spec.endsWith("?")) {
     return {
       ref: "Optional",
-      of: parseMultiNodeRef(spec.substring(0, spec.length - 1)),
+      of: parseListOfNodeRef(spec.substring(0, spec.length - 1)),
     };
   } else {
-    return parseMultiNodeRef(spec);
+    return parseListOfNodeRef(spec);
   }
 }
 
@@ -347,7 +347,10 @@ const grammar = ohm.grammar(String.raw`
         = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
 
       AGField
-        = identifier "?"? ":" AGNodeRef ("+" | "*")?
+        = identifier "?"? ":" AGPattern
+      
+      AGPattern
+        = AGNodeRef ("+" | "*")?
 
       AGNodeRef
         = BuiltinTypeUnion  -- builtin
@@ -373,8 +376,8 @@ semantics.addAttribute<
   | AGNodeDef
   | AGUnionDef
   | AGField
+  | AGPattern
   | AGNodeRef
-  | MultiNodeRef
   | BuiltinType
   | string
 >("ast", {
@@ -428,25 +431,21 @@ semantics.addAttribute<
     };
   },
 
-  AGField(name, qmark, _colon, refNode, repeat): AGField {
-    let ref = refNode.ast;
-
-    if (repeat.children.length > 0) {
-      const op = repeat.children[0].sourceString;
-      ref = {
-        ref: "List",
-        of: ref,
-        min: op === "+" ? 1 : 0,
-      };
-    }
-
+  AGField(name, qmark, _colon, pattern): AGField {
+    let ref = pattern.ast;
     if (qmark.children.length > 0) {
-      ref = {
-        ref: "Optional",
-        of: ref,
-      };
+      ref = { ref: "Optional", of: ref };
     }
     return { name: name.ast, ref };
+  },
+
+  AGPattern(refNode, multiplier): AGPattern {
+    let ref = refNode.ast;
+    if (multiplier.children.length > 0) {
+      const op = multiplier.children[0].sourceString;
+      ref = { ref: "List", of: ref, min: op === "+" ? 1 : 0 };
+    }
+    return ref;
   },
 
   AGNodeRef_node(nodename): AGBaseNodeRef {
@@ -562,12 +561,12 @@ function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
 }
 
 export function parseGrammarFromString_withOhm(text: string): AGGrammar {
-  const r = grammar.match(text);
-  // if (r.message) {
-  //   throw new Error(r.message);
-  // }
+  const parsed = grammar.match(text);
+  if (parsed.message) {
+    throw new Error(parsed.message);
+  }
 
-  const tree = semantics(r);
+  const tree = semantics(parsed);
   tree.check(); // Will throw in case of errors
   return tree.ast;
 }
