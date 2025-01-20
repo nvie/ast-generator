@@ -4,6 +4,15 @@
 TypeScript code generator for AST nodes based on the following grammar format:
 
 ```
+Document {
+  version?: number
+  shapes: @Shape*
+}
+
+@Shape =
+  | Circle
+  | Rect
+
 Circle {
   cx: number
   cy: number
@@ -15,14 +24,5 @@ Rect {
   y: number
   width: number
   height: number
-}
-
-@Shape =
-  | Circle
-  | Rect
-
-Document {
-  version?: number
-  shapes: @Shape*
 }
 ```
