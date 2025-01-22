@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Add support for addition of external semantic properties/methods
+
 ## [0.3.0] - 2025-01-20
 
 - New definition language

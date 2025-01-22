@@ -4,6 +4,11 @@
 TypeScript code generator for AST nodes based on the following grammar format:
 
 ```
+# These lines assign a "foo" property and a "bar" method to every Node in the
+# generated AST. You can define their semantic meaning separately.
+external property foo
+external method bar()
+
 Document {
   version?: number
   shapes: @Shape*

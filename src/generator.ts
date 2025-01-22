@@ -51,11 +51,16 @@ type AGNodeDef = {
   fields: AGField[];
 };
 
+type AGExternalDefinition = AGExternalProperty | AGExternalMethod;
+type AGExternalProperty = { type: "property"; name: string };
+type AGExternalMethod = { type: "method"; name: string };
+
 type AGDef = AGUnionDef | AGNodeDef;
 
 type LUT<T> = Record<string, T>;
 
 type AGGrammar = {
+  externals: AGExternalDefinition[];
   startNode: string;
 
   nodesByName: LUT<AGNodeDef>;
@@ -89,6 +94,280 @@ function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
   }
   return [gold, dirt];
 }
+
+const grammar = ohm.grammar(String.raw`
+    AstGeneratorGrammar {
+      Start = ExternalDeclaration* Def+
+
+      // Override Ohm's built-in definition of space
+      space := "\u0000".." " | comment
+      comment = "#" (~"\n" any)*
+      nodename (a node name) = upper alnum*
+      identifier (an identifier) = ~keyword letter alnum*
+
+      // Keywords
+      keyword = external | property | method
+      external = "external" ~alnum
+      property = "property" ~alnum
+      method   = "method" ~alnum
+
+      ExternalDeclaration
+        = ExternalPropertyDeclaration
+        | ExternalMethodDeclaration
+
+      ExternalPropertyDeclaration
+        = "external" "property" identifier
+
+      ExternalMethodDeclaration
+        = "external" "method" identifier "(" ")"
+
+      Def
+        = AGNodeDef
+        | AGUnionDef
+
+      AGNodeDef
+        = nodename "{" AGField* "}"
+
+      AGUnionDef
+        = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
+
+      AGField
+        = identifier "?"? ":" AGRepeatedPattern
+
+      AGRepeatedPattern
+        = AGNodeRef ("+" | "*")?
+
+      AGNodeRef
+        = BuiltinTypeUnion  -- builtin
+        | nodename          -- node
+        | "@" nodename      -- union
+
+      BuiltinTypeUnion
+        = NonemptyListOf<BuiltinType, "|">
+
+      // e.g. \`boolean\`, or \`string | boolean\`
+      BuiltinType
+        = "string"
+        | "number"
+        | "boolean"
+        | "null"
+    }
+  `);
+
+const semantics = grammar.createSemantics();
+
+semantics.addAttribute<
+  | AGGrammar
+  | AGExternalDefinition
+  | AGNodeDef
+  | AGUnionDef
+  | AGField
+  | AGRepeatedPattern
+  | AGPattern
+  | BuiltinType
+  | string
+>("ast", {
+  nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
+  identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
+
+  Start(externalDecls, defList): AGGrammar {
+    const externals = externalDecls.children.map(
+      (d) => d.ast as AGExternalDefinition,
+    );
+
+    const defs = defList.children.map((d) => d.ast as AGDef);
+
+    const unionsByName: LUT<AGUnionDef> = {};
+    const nodesByName: LUT<AGNodeDef> = {};
+
+    for (const def of defs) {
+      if ("members" in def) {
+        unionsByName[def.name] = def;
+      } else {
+        nodesByName[def.name] = def;
+      }
+    }
+
+    return {
+      externals,
+
+      // The first-defined node in the document is the start node
+      startNode: Object.keys(nodesByName)[0]!,
+
+      nodesByName,
+      nodes: Object.keys(nodesByName)
+        .sort()
+        .map((name) => nodesByName[name]!),
+
+      unionsByName,
+      unions: Object.keys(unionsByName)
+        .sort()
+        .map((name) => unionsByName[name]!),
+    };
+  },
+
+  ExternalPropertyDeclaration(_e, _p, identifier): AGExternalProperty {
+    return { type: "property", name: identifier.ast as string };
+  },
+
+  ExternalMethodDeclaration(_e, _m, identifier, _lp, _rp): AGExternalMethod {
+    return { type: "method", name: identifier.ast as string };
+  },
+
+  AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
+    const fields = fieldList.children.map((f) => f.ast as AGField);
+    const fieldsByName = index(fields, (f) => f.name);
+    return {
+      name: name.ast as string,
+      fieldsByName,
+      fields,
+    };
+  },
+
+  AGUnionDef(_at, name, _eq, _pipe, memberList): AGUnionDef {
+    return {
+      name: name.ast as string,
+      members: memberList.asIteration().children.map((m) => m.ast as AGPattern),
+    };
+  },
+
+  AGField(name, qmark, _colon, patternNode): AGField {
+    let pattern: AGPattern = patternNode.ast as AGRepeatedPattern;
+    if (qmark.children.length > 0) {
+      pattern = { ref: "Optional", of: pattern };
+    }
+    return { name: name.ast as string, pattern };
+  },
+
+  AGRepeatedPattern(refNode, multiplier): AGRepeatedPattern {
+    let ref: AGRepeatedPattern = refNode.ast as AGNodeRef;
+    if (multiplier.children.length > 0) {
+      const op = multiplier.children[0]!.sourceString;
+      ref = { ref: "List", of: ref, min: op === "+" ? 1 : 0 };
+    }
+    return ref;
+  },
+
+  AGNodeRef_node(nodename): AGNodeRef {
+    return { ref: "Node", name: nodename.ast as string };
+  },
+
+  AGNodeRef_union(_at, nodename): AGNodeRef {
+    return { ref: "NodeUnion", name: nodename.ast as string };
+  },
+
+  BuiltinTypeUnion(list): BuiltinType {
+    return {
+      ref: "Raw",
+      name: list.sourceString,
+    };
+  },
+});
+
+semantics.addOperation<ohm.Node[]>("allRefs", {
+  _terminal() {
+    return [];
+  },
+  _nonterminal(...children) {
+    return children.flatMap((c) => (c.allRefs as () => ohm.Node[])());
+  },
+  _iter(...children) {
+    return children.flatMap((c) => (c.allRefs as () => ohm.Node[])());
+  },
+  AGNodeRef_node(_nodename) {
+    return [this];
+  },
+  AGNodeRef_union(_at, _nodename) {
+    return [this];
+  },
+});
+
+semantics.addOperation<undefined>("check", {
+  Start(externalDecls, defList): undefined {
+    {
+      const seen = new Set();
+      for (const decl of externalDecls.children) {
+        const astNode = decl.ast as AGExternalDefinition;
+        if (seen.has(astNode.name)) {
+          throw new Error(
+            decl.source.getLineAndColumnMessage() +
+              `Duplicate external declaration of '${astNode.name}'`,
+          );
+        }
+        seen.add(astNode.name);
+      }
+    }
+
+    const validNames = new Set<string>();
+
+    const nodeDefs: AGNodeDef[] = [];
+    const unionDefs: AGUnionDef[] = [];
+
+    // Do a pass over all defined nodes
+    for (const def of defList.children) {
+      const astNode = def.ast as AGDef;
+      if (validNames.has(astNode.name)) {
+        throw new Error(
+          def.source.getLineAndColumnMessage() +
+            `Duplicate definition of '${astNode.name}'`,
+        );
+      }
+
+      validNames.add(astNode.name);
+      if ("members" in astNode) {
+        unionDefs.push(astNode);
+      } else {
+        nodeDefs.push(astNode);
+      }
+    }
+
+    // Do a pass over all node references
+    const nodeNames = nodeDefs.map((d) => d.name);
+    const unionNames = unionDefs.map((d) => d.name);
+
+    const unused = new Set(validNames);
+
+    // Remove the start node's name
+    unused.delete((this.ast as AGGrammar).startNode);
+
+    for (const ohmNode of (this.allRefs as () => ohm.Node[])()) {
+      const nodeRef = ohmNode.ast as AGNodeRef;
+      unused.delete(nodeRef.name);
+
+      // Check that all MyNode refs are valid
+      if (nodeRef.ref === "Node") {
+        if (!nodeNames.includes(nodeRef.name)) {
+          throw new Error(
+            ohmNode.source.getLineAndColumnMessage() +
+              `Cannot find '${nodeRef.name}'`,
+          );
+        }
+      }
+
+      // Check that all @MyUnion refs are valid
+      if (nodeRef.ref === "NodeUnion") {
+        if (!unionNames.includes(nodeRef.name)) {
+          throw new Error(
+            ohmNode.source.getLineAndColumnMessage() +
+              `Cannot find '@${nodeRef.name}'`,
+          );
+        }
+      }
+    }
+
+    if (unused.size > 0) {
+      const [first] = unused;
+      const name = first!;
+      const def = defList.children.find(
+        (def) => (def.ast as AGDef).name === name,
+      )!;
+      throw new Error(
+        def.children[0]!.source.getLineAndColumnMessage() +
+          `Unused definition '${"members" in (def.ast as AGDef) ? "@" : ""}${name}'`,
+      );
+    }
+  },
+});
 
 function lowercaseFirst(text: string): string {
   return text[0]!.toLowerCase() + text.slice(1);
@@ -274,235 +553,6 @@ function parseGrammarFromPath(path: string): AGGrammar {
   return parseGrammarFromString(src);
 }
 
-const grammar = ohm.grammar(String.raw`
-    AstGeneratorGrammar {
-      Start = Def+
-
-      // Override Ohm's built-in definition of space
-      space := "\u0000".." " | comment
-      comment = "#" (~"\n" any)*
-      nodename (a node name) = upper alnum*
-      identifier (an identifier) = letter alnum*
-
-      Def
-        = AGNodeDef
-        | AGUnionDef
-
-      AGNodeDef
-        = nodename "{" AGField* "}"
-
-      AGUnionDef
-        = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
-
-      AGField
-        = identifier "?"? ":" AGRepeatedPattern
-      
-      AGRepeatedPattern
-        = AGNodeRef ("+" | "*")?
-
-      AGNodeRef
-        = BuiltinTypeUnion  -- builtin
-        | nodename          -- node
-        | "@" nodename      -- union
-
-      BuiltinTypeUnion
-        = NonemptyListOf<BuiltinType, "|">
-
-      // e.g. \`boolean\`, or \`string | boolean\`
-      BuiltinType
-        = "string"
-        | "number"
-        | "boolean"
-        | "null"
-    }
-  `);
-
-const semantics = grammar.createSemantics();
-
-semantics.addAttribute<
-  | AGGrammar
-  | AGNodeDef
-  | AGUnionDef
-  | AGField
-  | AGRepeatedPattern
-  | AGPattern
-  | BuiltinType
-  | string
->("ast", {
-  nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
-  identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
-
-  Start(defList): AGGrammar {
-    const defs = defList.children.map((d) => d.ast as AGDef);
-
-    const unionsByName: LUT<AGUnionDef> = {};
-    const nodesByName: LUT<AGNodeDef> = {};
-
-    for (const def of defs) {
-      if ("members" in def) {
-        unionsByName[def.name] = def;
-      } else {
-        nodesByName[def.name] = def;
-      }
-    }
-
-    return {
-      // The first-defined node in the document is the start node
-      startNode: Object.keys(nodesByName)[0]!,
-
-      nodesByName,
-      nodes: Object.keys(nodesByName)
-        .sort()
-        .map((name) => nodesByName[name]!),
-
-      unionsByName,
-      unions: Object.keys(unionsByName)
-        .sort()
-        .map((name) => unionsByName[name]!),
-    };
-  },
-
-  AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
-    const fields = fieldList.children.map((f) => f.ast as AGField);
-    const fieldsByName = index(fields, (f) => f.name);
-    return {
-      name: name.ast as string,
-      fieldsByName,
-      fields,
-    };
-  },
-
-  AGUnionDef(_at, name, _eq, _pipe, memberList): AGUnionDef {
-    return {
-      name: name.ast as string,
-      members: memberList.asIteration().children.map((m) => m.ast as AGPattern),
-    };
-  },
-
-  AGField(name, qmark, _colon, patternNode): AGField {
-    let pattern: AGPattern = patternNode.ast as AGRepeatedPattern;
-    if (qmark.children.length > 0) {
-      pattern = { ref: "Optional", of: pattern };
-    }
-    return { name: name.ast as string, pattern };
-  },
-
-  AGRepeatedPattern(refNode, multiplier): AGRepeatedPattern {
-    let ref: AGRepeatedPattern = refNode.ast as AGNodeRef;
-    if (multiplier.children.length > 0) {
-      const op = multiplier.children[0]!.sourceString;
-      ref = { ref: "List", of: ref, min: op === "+" ? 1 : 0 };
-    }
-    return ref;
-  },
-
-  AGNodeRef_node(nodename): AGNodeRef {
-    return { ref: "Node", name: nodename.ast as string };
-  },
-
-  AGNodeRef_union(_at, nodename): AGNodeRef {
-    return { ref: "NodeUnion", name: nodename.ast as string };
-  },
-
-  BuiltinTypeUnion(list): BuiltinType {
-    return {
-      ref: "Raw",
-      name: list.sourceString,
-    };
-  },
-});
-
-semantics.addOperation<ohm.Node[]>("allRefs", {
-  _terminal() {
-    return [];
-  },
-  _nonterminal(...children) {
-    return children.flatMap((c) => (c.allRefs as () => ohm.Node[])());
-  },
-  _iter(...children) {
-    return children.flatMap((c) => (c.allRefs as () => ohm.Node[])());
-  },
-  AGNodeRef_node(_nodename) {
-    return [this];
-  },
-  AGNodeRef_union(_at, _nodename) {
-    return [this];
-  },
-});
-
-semantics.addOperation<undefined>("check", {
-  Start(defList): undefined {
-    const validNames = new Set<string>();
-
-    const nodeDefs: AGNodeDef[] = [];
-    const unionDefs: AGUnionDef[] = [];
-
-    // Do a pass over all defined nodes
-    for (const def of defList.children) {
-      const astNode = def.ast as AGDef;
-      if (validNames.has(astNode.name)) {
-        throw new Error(
-          def.source.getLineAndColumnMessage() +
-            `Duplicate definition of '${astNode.name}'`,
-        );
-      }
-
-      validNames.add(astNode.name);
-      if ("members" in astNode) {
-        unionDefs.push(astNode);
-      } else {
-        nodeDefs.push(astNode);
-      }
-    }
-
-    // Do a pass over all node references
-    const nodeNames = nodeDefs.map((d) => d.name);
-    const unionNames = unionDefs.map((d) => d.name);
-
-    const unused = new Set(validNames);
-
-    // Remove the start node's name
-    unused.delete((this.ast as AGGrammar).startNode);
-
-    for (const ohmNode of (this.allRefs as () => ohm.Node[])()) {
-      const nodeRef = ohmNode.ast as AGNodeRef;
-      unused.delete(nodeRef.name);
-
-      // Check that all MyNode refs are valid
-      if (nodeRef.ref === "Node") {
-        if (!nodeNames.includes(nodeRef.name)) {
-          throw new Error(
-            ohmNode.source.getLineAndColumnMessage() +
-              `Cannot find '${nodeRef.name}'`,
-          );
-        }
-      }
-
-      // Check that all @MyUnion refs are valid
-      if (nodeRef.ref === "NodeUnion") {
-        if (!unionNames.includes(nodeRef.name)) {
-          throw new Error(
-            ohmNode.source.getLineAndColumnMessage() +
-              `Cannot find '@${nodeRef.name}'`,
-          );
-        }
-      }
-    }
-
-    if (unused.size > 0) {
-      const [first] = unused;
-      const name = first!;
-      const def = defList.children.find(
-        (def) => (def.ast as AGDef).name === name,
-      )!;
-      throw new Error(
-        def.children[0]!.source.getLineAndColumnMessage() +
-          `Unused definition '${"members" in (def.ast as AGDef) ? "@" : ""}${name}'`,
-      );
-    }
-  },
-});
-
 function index<T>(arr: T[], keyFn: (item: T) => string): LUT<T> {
   const result: LUT<T> = {};
   for (const item of arr) {
@@ -531,7 +581,7 @@ function generateCode(grammar: AGGrammar): string {
     " * This file is AUTOMATICALLY GENERATED.",
     " * DO NOT edit this file manually.",
     " *",
-    " * Instead, update the `ast.grammar` file, and re-run `npm run build-ast`",
+    " * Instead, update the `ast.grammar` file, and re-run `generate-ast`.",
     " */",
     "",
     `
@@ -549,8 +599,25 @@ function generateCode(grammar: AGGrammar): string {
       );
     }
 
-    function asNode<N extends Node>(node: N): N {
-      return Object.defineProperty(node, 'range', { enumerable: false });
+    function asNode<N extends Node>(node: Omit<N, keyof Semantics>): N {
+      const self = Object.defineProperties(node, {
+        range: { enumerable: false },
+        ${grammar.externals
+          .filter((ext) => ext.type === "property")
+          .map(
+            (ext) =>
+              `${JSON.stringify(ext.name)}: { get() { return _semanticPropertyFactories[${JSON.stringify(ext.name)}](self) }, enumerable: false },`,
+          )
+          .join("\n")}
+        ${grammar.externals
+          .filter((ext) => ext.type === "method")
+          .map(
+            (ext) =>
+              `${JSON.stringify(ext.name)}: { value: () => _semanticMethods[${JSON.stringify(ext.name)}](self), enumerable: false, },`,
+          )
+          .join("\n")}
+      }) as N
+      return self
     }
 
     `,
@@ -585,6 +652,167 @@ function generateCode(grammar: AGGrammar): string {
   output.push(`
         export type Range = [number, number]
 
+        export interface Semantics {
+          //
+          // Reserved for user-provided semantic properties and methods that
+          // will appear as properties or methods on every node in this AST.
+          //
+          // For example, in user code, augment the types like this:
+          //
+          //   declare module "./my-generated-ast" {
+          //     interface Semantics {
+          //       foo: number;
+          //       bar(): string;
+          //     }
+          //   }
+          //
+        }
+
+        const NOT_IMPLEMENTED = Symbol();
+
+        const placeholder = (name: string) => {
+          const f = (_node: Node): any => {
+            throw new Error(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`);
+          };
+          return Object.defineProperty(f, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+        }
+
+        const placeholder2 = (name: string) => {
+          const f = (_node: Node): any => {
+            throw new Error(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`);
+          };
+          return Object.defineProperty(f, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+        }
+
+        const _semanticMethods = {
+          ${grammar.externals
+            .filter((ext) => ext.type === "method")
+            .map(
+              (ext) =>
+                `${JSON.stringify(ext.name)}: placeholder(${JSON.stringify(ext.name)}),`,
+            )
+            .join("\n")}
+        }
+
+        const _semanticPropertyFactories = {
+          ${grammar.externals
+            .filter((ext) => ext.type === "property")
+            .map(
+              (ext) =>
+                `${JSON.stringify(ext.name)}: placeholder2(${JSON.stringify(ext.name)}),`,
+            )
+            .join("\n")}
+        }
+
+        const _memoed = {
+          ${grammar.externals
+            .filter((ext) => ext.type === "property")
+            .map((ext) => `${JSON.stringify(ext.name)}: new WeakMap(),`)
+            .join("\n")}
+        }
+
+        type SemanticProperty = ${
+          grammar.externals
+            .filter((ext) => ext.type === "property")
+            .map((ext) => JSON.stringify(ext.name))
+            .join(" | ") || "never"
+        }
+        type SemanticMethod = ${
+          grammar.externals
+            .filter((ext) => ext.type === "method")
+            .map((ext) => JSON.stringify(ext.name))
+            .join(" | ") || "never"
+        }
+
+        export function defineMethodExhaustively<M extends SemanticMethod>(
+          name: M,
+          dispatchMap: ExhaustiveDispatch<ReturnType<typeof _semanticMethods[M]>>,
+        ): void {
+          return defineMethod(name, dispatchMap);
+        }
+
+        export function defineMethod<M extends SemanticMethod>(
+          name: M,
+          dispatchMap: PartialDispatch<ReturnType<typeof _semanticMethods[M]>>,
+        ): void {
+          if (_semanticMethods[name] === undefined) {
+            const err = new Error(\`Unknown semantic method '\${name}'. Did you mean to declare 'external method \${name}()' in your grammar?\`)
+            Error.captureStackTrace(err, defineMethod)
+            throw err
+          }
+
+          // Ensure each semantic method will be defined at most once
+          if (!(NOT_IMPLEMENTED in _semanticMethods[name])) {
+            const err = new Error(\`Semantic method '\${name}' is already defined\`)
+            Error.captureStackTrace(err, defineMethod)
+            throw err
+          }
+
+          _semanticMethods[name] = (node: Node) => dispatch(name, node, dispatchMap)
+        }
+
+        export function definePropertyExhaustively<P extends SemanticProperty>(
+          name: P,
+          dispatchMap: ExhaustiveDispatch<ReturnType<typeof _semanticPropertyFactories[P]>>,
+        ): void {
+          return defineProperty(name, dispatchMap);
+        }
+
+        export function defineProperty<P extends SemanticProperty>(
+          name: P,
+          dispatchMap: PartialDispatch<ReturnType<typeof _semanticPropertyFactories[P]>>,
+        ): void {
+          if (_semanticPropertyFactories[name] === undefined) {
+            const err = new Error(\`Unknown semantic property '\${name}'. Did you mean to declare 'external property \${name}' in your grammar?\`)
+            Error.captureStackTrace(err, defineProperty)
+            throw err
+          }
+
+          // Ensure each semantic property will be defined at most once
+          if (!(NOT_IMPLEMENTED in _semanticPropertyFactories[name])) {
+            const err = new Error(\`Semantic property '\${name}' is already defined\`)
+            Error.captureStackTrace(err, defineProperty)
+            throw err
+          }
+
+          // TODO We can probably DRY a bunch of stuff up in here
+          _semanticPropertyFactories[name] = (node: Node) => {
+            const w = _memoed[name]
+            if (w.has(node)) return w.get(node)
+            const rv = dispatch2(name, node, dispatchMap)
+            w.set(node, rv)
+            return rv
+          }
+        }
+
+        function dispatch<T, TNode extends Node>(
+          method: SemanticMethod,
+          node: TNode,
+          dispatchMap: PartialDispatch<T>,
+        ): T {
+          const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
+          if (handler === undefined) {
+            const err = new Error(\`Semantic method '\${method}' not defined for '\${node._kind}'\. Check your defineMethod("\${method}")\`);
+            Error.captureStackTrace(err, dispatch)
+            throw err
+          }
+          return handler(node as never)
+        }
+
+        function dispatch2<T, TNode extends Node>(
+          prop: SemanticProperty,
+          node: TNode,
+          dispatchMap: PartialDispatch<T>,
+        ): T {
+          const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
+          if (handler === undefined) {
+            const err = new Error(\`Semantic property '\${prop}' not defined for '\${node._kind}'\. Check your defineProperty("\${prop}")\`);
+            Error.captureStackTrace(err, dispatch)
+            throw err
+          }
+          return handler(node as never)
+        }
+
         export type Node = ${grammar.nodes.map((node) => node.name).join(" | ")}
 
         export function isRange(thing: unknown): thing is Range {
@@ -607,7 +835,7 @@ function generateCode(grammar: AGGrammar): string {
 
   for (const node of grammar.nodes) {
     output.push(`
-            export type ${node.name} = {
+            export interface ${node.name} extends Semantics {
                 _kind: ${JSON.stringify(node.name)}
                 ${node.fields
                   .map(
@@ -668,6 +896,25 @@ function generateCode(grammar: AGGrammar): string {
     output.push(
       `  ${node.name}?(node: ${node.name}, context: TContext): void;`,
     );
+  }
+  output.push("}");
+
+  output.push("");
+  output.push(
+    "interface PartialDispatch<T> extends Partial<ExhaustiveDispatch<T>> {",
+  );
+  output.push(`  // Catch-all`);
+  output.push(`  Node?(node: Node): T;`);
+
+  // XXX Maybe also allow "Expr" rule as fallback for unions? If so, how to
+  // handle it when a node type is part of multiple unions?',
+  output.push("}");
+
+  output.push("");
+  output.push("interface ExhaustiveDispatch<T> {");
+  output.push(`  // Leafs`);
+  for (const node of grammar.nodes) {
+    output.push(`  ${node.name}(node: ${node.name}): T;`);
   }
   output.push("}");
 
