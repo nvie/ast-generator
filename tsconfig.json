@@ -3,11 +3,12 @@
     "noEmit": true,
     "strict": true,
 
-    "target": "es2015",
+    "target": "es2022",
 
     // For all packages, let TypeScript use the following standardized way to
     // resolve modules
-    "moduleResolution": "node",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
 
     // Settings with an effect on the generated code
     "esModuleInterop": true, // Emit safer code for packages that use namespace/default imports
@@ -18,11 +19,12 @@
     "allowUnreachableCode": false, // False makes this stricter: errors instead of warns
     "allowUnusedLabels": false, // False makes this stricter: errors instead of warns
     "forceConsistentCasingInFileNames": true,
-    "importsNotUsedAsValues": "error",
-    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
-    "noUnusedParameters": true
+    "noUnusedParameters": true,
+    "noUncheckedIndexedAccess": true
   },
-  "include": ["bin/**/*", "src/**/*"]
+
+  "include": ["src/"]
 }

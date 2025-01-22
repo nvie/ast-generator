@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseGrammarFromString } from "../generator";
+import { parseGrammarFromString } from "../generator.js";
 
 describe("parsing grammars", () => {
   it("parses a grammar", () => {
