@@ -51,7 +51,9 @@ type AGNodeDef = {
   fields: AGField[];
 };
 
-type LUT<T> = { [key: string]: T };
+type AGDef = AGUnionDef | AGNodeDef;
+
+type LUT<T> = Record<string, T>;
 
 type AGGrammar = {
   startNode: string;
@@ -89,7 +91,7 @@ function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
 }
 
 function lowercaseFirst(text: string): string {
-  return text[0].toLowerCase() + text.slice(1);
+  return text[0]!.toLowerCase() + text.slice(1);
 }
 
 /**
@@ -152,14 +154,14 @@ function getTypeScriptType(pat: AGPattern): string {
 
 function validate(grammar: AGGrammar) {
   // Keep track of which node names are referenced/used
-  const referenced: Set<string> = new Set();
+  const referenced = new Set<string>();
 
   for (const nodeUnion of grammar.unions) {
     for (const ref of nodeUnion.members) {
       const memberName = getBareRef(ref);
       referenced.add(memberName);
       invariant(
-        grammar.nodesByName[memberName] ||
+        grammar.nodesByName[memberName] ??
           (nodeUnion.name !== memberName && !!grammar.unionsByName[memberName]),
         `Member "${memberName}" of union "${nodeUnion.name}" is not defined in the grammar`,
       );
@@ -331,7 +333,7 @@ semantics.addAttribute<
   identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
 
   Start(defList): AGGrammar {
-    const defs = defList.children.map((d) => d.ast as AGNodeDef | AGUnionDef);
+    const defs = defList.children.map((d) => d.ast as AGDef);
 
     const unionsByName: LUT<AGUnionDef> = {};
     const nodesByName: LUT<AGNodeDef> = {};
@@ -346,25 +348,25 @@ semantics.addAttribute<
 
     return {
       // The first-defined node in the document is the start node
-      startNode: Object.keys(nodesByName)[0],
+      startNode: Object.keys(nodesByName)[0]!,
 
       nodesByName,
       nodes: Object.keys(nodesByName)
         .sort()
-        .map((name) => nodesByName[name]),
+        .map((name) => nodesByName[name]!),
 
       unionsByName,
       unions: Object.keys(unionsByName)
         .sort()
-        .map((name) => unionsByName[name]),
+        .map((name) => unionsByName[name]!),
     };
   },
 
   AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
-    const fields = fieldList.children.map((f) => f.ast);
+    const fields = fieldList.children.map((f) => f.ast as AGField);
     const fieldsByName = index(fields, (f) => f.name);
     return {
-      name: name.ast,
+      name: name.ast as string,
       fieldsByName,
       fields,
     };
@@ -372,34 +374,34 @@ semantics.addAttribute<
 
   AGUnionDef(_at, name, _eq, _pipe, memberList): AGUnionDef {
     return {
-      name: name.ast,
-      members: memberList.asIteration().children.map((m) => m.ast),
+      name: name.ast as string,
+      members: memberList.asIteration().children.map((m) => m.ast as AGPattern),
     };
   },
 
   AGField(name, qmark, _colon, patternNode): AGField {
-    let pattern = patternNode.ast;
+    let pattern: AGPattern = patternNode.ast as AGRepeatedPattern;
     if (qmark.children.length > 0) {
       pattern = { ref: "Optional", of: pattern };
     }
-    return { name: name.ast, pattern };
+    return { name: name.ast as string, pattern };
   },
 
   AGRepeatedPattern(refNode, multiplier): AGRepeatedPattern {
-    let ref = refNode.ast;
+    let ref: AGRepeatedPattern = refNode.ast as AGNodeRef;
     if (multiplier.children.length > 0) {
-      const op = multiplier.children[0].sourceString;
+      const op = multiplier.children[0]!.sourceString;
       ref = { ref: "List", of: ref, min: op === "+" ? 1 : 0 };
     }
     return ref;
   },
 
   AGNodeRef_node(nodename): AGNodeRef {
-    return { ref: "Node", name: nodename.ast };
+    return { ref: "Node", name: nodename.ast as string };
   },
 
   AGNodeRef_union(_at, nodename): AGNodeRef {
-    return { ref: "NodeUnion", name: nodename.ast };
+    return { ref: "NodeUnion", name: nodename.ast as string };
   },
 
   BuiltinTypeUnion(list): BuiltinType {
@@ -415,10 +417,10 @@ semantics.addOperation<ohm.Node[]>("allRefs", {
     return [];
   },
   _nonterminal(...children) {
-    return children.flatMap((c) => c.allRefs());
+    return children.flatMap((c) => (c.allRefs as () => ohm.Node[])());
   },
   _iter(...children) {
-    return children.flatMap((c) => c.allRefs());
+    return children.flatMap((c) => (c.allRefs as () => ohm.Node[])());
   },
   AGNodeRef_node(_nodename) {
     return [this];
@@ -428,8 +430,8 @@ semantics.addOperation<ohm.Node[]>("allRefs", {
   },
 });
 
-semantics.addOperation<void>("check", {
-  Start(defList): void {
+semantics.addOperation<undefined>("check", {
+  Start(defList): undefined {
     const validNames = new Set<string>();
 
     const nodeDefs: AGNodeDef[] = [];
@@ -437,15 +439,15 @@ semantics.addOperation<void>("check", {
 
     // Do a pass over all defined nodes
     for (const def of defList.children) {
-      if (validNames.has(def.ast.name)) {
+      const astNode = def.ast as AGDef;
+      if (validNames.has(astNode.name)) {
         throw new Error(
           def.source.getLineAndColumnMessage() +
-            `Duplicate definition of '${def.ast.name}'`,
+            `Duplicate definition of '${astNode.name}'`,
         );
       }
 
-      validNames.add(def.ast.name);
-      const astNode = def.ast;
+      validNames.add(astNode.name);
       if ("members" in astNode) {
         unionDefs.push(astNode);
       } else {
@@ -454,45 +456,48 @@ semantics.addOperation<void>("check", {
     }
 
     // Do a pass over all node references
-    const nodeNames: string[] = nodeDefs.map((d) => d.name);
-    const unionNames: string[] = unionDefs.map((d) => d.name);
+    const nodeNames = nodeDefs.map((d) => d.name);
+    const unionNames = unionDefs.map((d) => d.name);
 
-    const unused: Set<string> = new Set(validNames);
+    const unused = new Set(validNames);
 
     // Remove the start node's name
-    unused.delete(this.ast.startNode);
+    unused.delete((this.ast as AGGrammar).startNode);
 
-    for (const ohmNode of this.allRefs() as ohm.Node[]) {
-      const astNode = ohmNode.ast;
-      unused.delete(astNode.name);
+    for (const ohmNode of (this.allRefs as () => ohm.Node[])()) {
+      const nodeRef = ohmNode.ast as AGNodeRef;
+      unused.delete(nodeRef.name);
 
       // Check that all MyNode refs are valid
-      if (astNode.ref === "Node") {
-        if (!nodeNames.includes(astNode.name)) {
+      if (nodeRef.ref === "Node") {
+        if (!nodeNames.includes(nodeRef.name)) {
           throw new Error(
             ohmNode.source.getLineAndColumnMessage() +
-              `Cannot find '${astNode.name}'`,
+              `Cannot find '${nodeRef.name}'`,
           );
         }
       }
 
       // Check that all @MyUnion refs are valid
-      if (astNode.ref === "NodeUnion") {
-        if (!unionNames.includes(astNode.name)) {
+      if (nodeRef.ref === "NodeUnion") {
+        if (!unionNames.includes(nodeRef.name)) {
           throw new Error(
             ohmNode.source.getLineAndColumnMessage() +
-              `Cannot find '@${astNode.name}'`,
+              `Cannot find '@${nodeRef.name}'`,
           );
         }
       }
     }
 
     if (unused.size > 0) {
-      const [name] = unused;
-      const def = defList.children.find((def) => def.ast.name === name)!;
+      const [first] = unused;
+      const name = first!;
+      const def = defList.children.find(
+        (def) => (def.ast as AGDef).name === name,
+      )!;
       throw new Error(
-        def.children[0].source.getLineAndColumnMessage() +
-          `Unused definition '${"members" in def.ast ? "@" : ""}${name}'`,
+        def.children[0]!.source.getLineAndColumnMessage() +
+          `Unused definition '${"members" in (def.ast as AGDef) ? "@" : ""}${name}'`,
       );
     }
   },
@@ -513,8 +518,8 @@ export function parseGrammarFromString(text: string): AGGrammar {
   }
 
   const tree = semantics(parsed);
-  tree.check(); // Will throw in case of errors
-  return tree.ast;
+  (tree.check as () => void)(); // Will throw in case of errors
+  return tree.ast as AGGrammar;
 }
 
 function generateCode(grammar: AGGrammar): string {
@@ -572,7 +577,7 @@ function generateCode(grammar: AGGrammar): string {
     output.push(`
             export type ${union.name} =
                 ${union.members
-                  .map((member) => `${getBareRef(member)}`)
+                  .map((member) => getBareRef(member))
                   .join(" | ")};
             `);
   }
@@ -691,7 +696,8 @@ function generateCode(grammar: AGGrammar): string {
 
         case "List":
           output.push(
-            `  node.${field.name}.forEach(${field.name[0]} => visit(${field.name[0]}, visitor, context));`,
+            `  node.${field.name}.forEach(${field.name[0]!} => visit(${field
+              .name[0]!}, visitor, context));`,
           );
           break;
 

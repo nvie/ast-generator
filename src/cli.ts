@@ -1,7 +1,6 @@
-#!/usr/bin/env node
 import { Command } from "commander";
 
-import { generateAST } from "./generator";
+import { generateAST } from "./generator.js";
 
 function red(msg: string) {
   if (typeof process !== "undefined" && process.stdout.isTTY) {
