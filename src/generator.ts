@@ -3,6 +3,16 @@ import * as ohm from "ohm-js";
 import prettier from "prettier";
 import invariant from "tiny-invariant";
 
+//
+// XXX Differences between semantic methods and properties:
+// - Properties are memoized, and thus their factory functions execute at most
+//   once per node instance
+// - Properties cannot have arguments
+// - Methods can IN THEORY have arguments (think a context), but we don't
+//   support that yet. Example could be: node.prettify({ indent: 2 })
+// - Both are lazily evaluated
+//
+
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"]);
 
 function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
@@ -583,6 +593,7 @@ function generateCode(grammar: AGGrammar): string {
     " *",
     " * Instead, update the `ast.grammar` file, and re-run `generate-ast`.",
     " */",
+    " /* eslint-disable */",
     "",
     `
     const DEBUG = process.env.NODE_ENV !== 'production';
@@ -606,14 +617,14 @@ function generateCode(grammar: AGGrammar): string {
           .filter((ext) => ext.type === "property")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: { get() { return _semanticPropertyFactories[${JSON.stringify(ext.name)}](self) }, enumerable: false },`,
+              `${JSON.stringify(ext.name)}: { get: () => semanticPropertyFactories[${JSON.stringify(ext.name)}](self), enumerable: false },`,
           )
           .join("\n")}
         ${grammar.externals
           .filter((ext) => ext.type === "method")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: { value: () => _semanticMethods[${JSON.stringify(ext.name)}](self), enumerable: false, },`,
+              `${JSON.stringify(ext.name)}: { value: () => semanticMethods[${JSON.stringify(ext.name)}](self), enumerable: false, },`,
           )
           .join("\n")}
       }) as N
@@ -670,41 +681,50 @@ function generateCode(grammar: AGGrammar): string {
 
         const NOT_IMPLEMENTED = Symbol();
 
-        const placeholder = (name: string) => {
-          const f = (_node: Node): any => {
-            throw new Error(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`);
-          };
-          return Object.defineProperty(f, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+        const stub = (msg: string) => {
+          return Object.defineProperty((_node: Node): any => {
+            throw new Error(msg)
+          }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
         }
 
-        const placeholder2 = (name: string) => {
-          const f = (_node: Node): any => {
-            throw new Error(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`);
-          };
-          return Object.defineProperty(f, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+        const pStub = (name: string) =>
+          stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
+
+        const mStub = (name: string) =>
+          stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
+
+// XXX DRY things up into a single registry
+
+        const semantics = {
+          ${grammar.externals
+            .map(
+              (ext) =>
+                `${JSON.stringify(ext.name)}: ${ext.type === "method" ? "mStub" : "pStub"}(${JSON.stringify(ext.name)}),`,
+            )
+            .join("\n")}
         }
 
-        const _semanticMethods = {
+        const semanticMethods = {
           ${grammar.externals
             .filter((ext) => ext.type === "method")
             .map(
               (ext) =>
-                `${JSON.stringify(ext.name)}: placeholder(${JSON.stringify(ext.name)}),`,
+                `${JSON.stringify(ext.name)}: mStub(${JSON.stringify(ext.name)}),`,
             )
             .join("\n")}
         }
 
-        const _semanticPropertyFactories = {
+        const semanticPropertyFactories = {
           ${grammar.externals
             .filter((ext) => ext.type === "property")
             .map(
               (ext) =>
-                `${JSON.stringify(ext.name)}: placeholder2(${JSON.stringify(ext.name)}),`,
+                `${JSON.stringify(ext.name)}: pStub(${JSON.stringify(ext.name)}),`,
             )
             .join("\n")}
         }
 
-        const _memoed = {
+        const memoedSemanticProperties = {
           ${grammar.externals
             .filter((ext) => ext.type === "property")
             .map((ext) => `${JSON.stringify(ext.name)}: new WeakMap(),`)
@@ -723,69 +743,70 @@ function generateCode(grammar: AGGrammar): string {
             .map((ext) => JSON.stringify(ext.name))
             .join(" | ") || "never"
         }
-
-        export function defineMethodExhaustively<M extends SemanticMethod>(
-          name: M,
-          dispatchMap: ExhaustiveDispatch<ReturnType<typeof _semanticMethods[M]>>,
-        ): void {
-          return defineMethod(name, dispatchMap);
-        }
+        type Semantic = SemanticProperty | SemanticMethod;
 
         export function defineMethod<M extends SemanticMethod>(
           name: M,
-          dispatchMap: PartialDispatch<ReturnType<typeof _semanticMethods[M]>>,
+          dispatchMap: PartialDispatch<ReturnType<typeof semanticMethods[M]>>,
         ): void {
-          if (_semanticMethods[name] === undefined) {
+          if (semanticMethods[name] === undefined) {
             const err = new Error(\`Unknown semantic method '\${name}'. Did you mean to declare 'external method \${name}()' in your grammar?\`)
             Error.captureStackTrace(err, defineMethod)
             throw err
           }
 
           // Ensure each semantic method will be defined at most once
-          if (!(NOT_IMPLEMENTED in _semanticMethods[name])) {
+          if (!(NOT_IMPLEMENTED in semanticMethods[name])) {
             const err = new Error(\`Semantic method '\${name}' is already defined\`)
             Error.captureStackTrace(err, defineMethod)
             throw err
           }
 
-          _semanticMethods[name] = (node: Node) => dispatch(name, node, dispatchMap)
+          semanticMethods[name] = (node: Node) => dispatchMethod(name, node, dispatchMap)
         }
 
-        export function definePropertyExhaustively<P extends SemanticProperty>(
-          name: P,
-          dispatchMap: ExhaustiveDispatch<ReturnType<typeof _semanticPropertyFactories[P]>>,
+        export function defineMethodExhaustively<M extends SemanticMethod>(
+          name: M,
+          dispatchMap: ExhaustiveDispatch<ReturnType<typeof semanticMethods[M]>>,
         ): void {
-          return defineProperty(name, dispatchMap);
+          return defineMethod(name, dispatchMap);
         }
 
         export function defineProperty<P extends SemanticProperty>(
           name: P,
-          dispatchMap: PartialDispatch<ReturnType<typeof _semanticPropertyFactories[P]>>,
+          dispatchMap: PartialDispatch<ReturnType<typeof semanticPropertyFactories[P]>>,
         ): void {
-          if (_semanticPropertyFactories[name] === undefined) {
+          if (semanticPropertyFactories[name] === undefined) {
             const err = new Error(\`Unknown semantic property '\${name}'. Did you mean to declare 'external property \${name}' in your grammar?\`)
             Error.captureStackTrace(err, defineProperty)
             throw err
           }
 
           // Ensure each semantic property will be defined at most once
-          if (!(NOT_IMPLEMENTED in _semanticPropertyFactories[name])) {
+          if (!(NOT_IMPLEMENTED in semanticPropertyFactories[name])) {
             const err = new Error(\`Semantic property '\${name}' is already defined\`)
             Error.captureStackTrace(err, defineProperty)
             throw err
           }
 
           // TODO We can probably DRY a bunch of stuff up in here
-          _semanticPropertyFactories[name] = (node: Node) => {
-            const w = _memoed[name]
-            if (w.has(node)) return w.get(node)
-            const rv = dispatch2(name, node, dispatchMap)
-            w.set(node, rv)
+          semanticPropertyFactories[name] = (node: Node) => {
+            const cache = memoedSemanticProperties[name]
+            if (cache.has(node)) return cache.get(node)
+            const rv = dispatchProperty(name, node, dispatchMap)
+            cache.set(node, rv)
             return rv
           }
         }
 
-        function dispatch<T, TNode extends Node>(
+        export function definePropertyExhaustively<P extends SemanticProperty>(
+          name: P,
+          dispatchMap: ExhaustiveDispatch<ReturnType<typeof semanticPropertyFactories[P]>>,
+        ): void {
+          return defineProperty(name, dispatchMap);
+        }
+
+        function dispatchMethod<T, TNode extends Node>(
           method: SemanticMethod,
           node: TNode,
           dispatchMap: PartialDispatch<T>,
@@ -793,13 +814,13 @@ function generateCode(grammar: AGGrammar): string {
           const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
           if (handler === undefined) {
             const err = new Error(\`Semantic method '\${method}' not defined for '\${node._kind}'\. Check your defineMethod("\${method}")\`);
-            Error.captureStackTrace(err, dispatch)
+            Error.captureStackTrace(err, dispatchMethod)
             throw err
           }
           return handler(node as never)
         }
 
-        function dispatch2<T, TNode extends Node>(
+        function dispatchProperty<T, TNode extends Node>(
           prop: SemanticProperty,
           node: TNode,
           dispatchMap: PartialDispatch<T>,
@@ -807,7 +828,7 @@ function generateCode(grammar: AGGrammar): string {
           const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
           if (handler === undefined) {
             const err = new Error(\`Semantic property '\${prop}' not defined for '\${node._kind}'\. Check your defineProperty("\${prop}")\`);
-            Error.captureStackTrace(err, dispatch)
+            Error.captureStackTrace(err, dispatchProperty)
             throw err
           }
           return handler(node as never)
