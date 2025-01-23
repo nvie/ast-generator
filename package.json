@@ -41,6 +41,7 @@
     "eslint": "^9.18.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
+    "pkg-pr-new": "^0.0.39",
     "release-it": "^18.1.1",
     "tsup": "^8.3.5",
     "typescript-eslint": "^8.21.0",
