@@ -529,6 +529,22 @@ function generateTypeCheckCondition(expected: AGPattern, actualValue: string): s
   return conditions.map((c) => `(${c})`).join(" && ")
 }
 
+const onlyOnce = new WeakSet()
+
+function generateStub(): string {
+  if (onlyOnce.has(generateStub)) return ""
+  onlyOnce.add(generateStub)
+  return `
+    const NOT_IMPLEMENTED = Symbol();
+
+    const stub = (msg: string) => {
+      return Object.defineProperty((_node: Node): any => {
+        throw new Error(msg)
+      }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+    }
+  `
+}
+
 function generateMethodHelpers(grammar: AGGrammar): string {
   const methods = grammar.externals.filter((ext) => ext.type === "method")
   if (methods.length === 0) {
@@ -536,8 +552,11 @@ function generateMethodHelpers(grammar: AGGrammar): string {
   }
 
   const union = methods.map((ext) => JSON.stringify(ext.name)).join(" | ")
+  // TODO Would be nice to also allow defineMethod('name', (node) => ...) directly
+  // TODO This API would not make sense for defineMethodExhaustively, though
   return `
-    // XXX Maybe just inline?
+    ${generateStub()}
+
     const mStub = (name: string) =>
       stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
 
@@ -548,10 +567,10 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     }
 
     export function defineMethod<
-      M extends ${union}, 
+      M extends ${union},
       R extends ReturnType<Semantics[M]>
     >(name: M, dispatchMap: PartialDispatch<R>): void {
-      if (semanticMethods[name] === undefined) {
+      if (!semanticMethods.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'external method \${name}()' in your grammar?\`)
         Error.captureStackTrace(err, defineMethod)
         throw err
@@ -576,6 +595,20 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     ): void {
       return defineMethod(name, dispatchMap);
     }
+
+    function dispatchMethod<T, TNode extends Node>(
+      method: ${union},
+      node: TNode,
+      dispatchMap: PartialDispatch<T>,
+    ): T {
+      const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
+      if (handler === undefined) {
+        const err = new Error(\`Semantic method '\${method}' not defined on '\${node._kind}'\`);
+        Error.captureStackTrace(err, dispatchMethod)
+        throw err
+      }
+      return handler(node as never)
+    }
   `
 }
 
@@ -586,7 +619,11 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
   }
 
   const union = props.map((ext) => JSON.stringify(ext.name)).join(" | ")
+  // TODO Would be nice to also allow defineProperty('name', (node) => ...) directly
+  // TODO This API would not make sense for definePropertyExhaustively, though
   return `
+    ${generateStub()}
+
     const pStub = (name: string) =>
       stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
 
@@ -607,7 +644,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       name: P,
       dispatchMap: PartialDispatch<R>,
     ): void {
-      if (semanticPropertyFactories[name] === undefined) {
+      if (!semanticPropertyFactories.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'external property \${name}' in your grammar?\`)
         Error.captureStackTrace(err, defineProperty)
         throw err
@@ -640,6 +677,19 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       return defineProperty(name, dispatchMap);
     }
 
+    function dispatchProperty<T, TNode extends Node>(
+      prop: ${union},
+      node: TNode,
+      dispatchMap: PartialDispatch<T>,
+    ): T {
+      const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
+      if (handler === undefined) {
+        const err = new Error(\`Semantic property '\${prop}' not defined on '\${node._kind}'\`);
+        Error.captureStackTrace(err, dispatchProperty)
+        throw err
+      }
+      return handler(node as never)
+    }
   `
 }
 
@@ -681,18 +731,19 @@ function generateCode(grammar: AGGrammar): string {
     " /* eslint-disable */",
     "",
     `
+
+    /**
+     * Intended to augment by end users.
+     *
+     * See https://github.com/nvie/ast-generator/blob/main/README.md#assigning-semantics-meaning-to-nodes
+     */
+    export interface Semantics { }
+
     const DEBUG = process.env.NODE_ENV !== 'production';
 
     function assert(condition: boolean, errmsg: string): asserts condition {
       if (condition) return;
       throw new Error(errmsg);
-    }
-
-    function assertRange(range: unknown, currentContext: string): asserts range is Range {
-      assert(
-        isRange(range),
-        \`Invalid value for range in "\${JSON.stringify(currentContext)}".\\nExpected: Range\\nGot: \${JSON.stringify(range)}\`
-      );
     }
 
     function asNode<N extends Node>(node: Omit<N, keyof Semantics>): N {
@@ -738,116 +789,54 @@ function generateCode(grammar: AGGrammar): string {
 
   for (const union of grammar.unions) {
     output.push(`
-            export type ${union.name} =
-                ${union.members.map((member) => getBareRef(member)).join(" | ")};
-            `)
+      export type ${union.name} =
+        ${union.members.map((member) => getBareRef(member)).join(" | ")};
+    `)
   }
 
   output.push(`
-        export type Range = [number, number]
+    ${generateMethodHelpers(grammar)}
+    ${generatePropertyHelpers(grammar)}
 
-        export interface Semantics {
-          //
-          // Reserved for user-provided semantic properties and methods that
-          // will appear as properties or methods on every node in this AST.
-          //
-          // For example, in user code, augment the types like this:
-          //
-          //   declare module "./my-generated-ast" {
-          //     interface Semantics {
-          //       foo: number;
-          //       bar(): string;
-          //     }
-          //   }
-          //
-        }
+    export type Node = ${grammar.nodes.map((node) => node.name).join(" | ")}
 
-        const NOT_IMPLEMENTED = Symbol();
+    export type Range = [number, number]
 
-        const stub = (msg: string) => {
-          return Object.defineProperty((_node: Node): any => {
-            throw new Error(msg)
-          }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
-        }
+    export function isRange(thing: unknown): thing is Range {
+      return (
+        Array.isArray(thing)
+        && thing.length === 2
+        && typeof thing[0] === 'number'
+        && typeof thing[1] === 'number'
+      )
+    }
 
-// XXX DRY things up into a single registry
+    function assertRange(range: unknown, currentContext: string): asserts range is Range {
+      assert(
+        isRange(range),
+        \`Invalid value for range in "\${JSON.stringify(currentContext)}".\\nExpected: Range\\nGot: \${JSON.stringify(range)}\`
+      );
+    }
 
-// XXX Would be nice to also allow defineMethod('name', (node) => ...) directly
-// XXX This API would not make sense for defineMethodExhaustively, though
-
-        ${generateMethodHelpers(grammar)}
-        ${generatePropertyHelpers(grammar)}
-
-        function dispatchMethod<T, TNode extends Node>(
-          method: ${
-            grammar.externals
-              .filter((ext) => ext.type === "method")
-              .map((ext) => JSON.stringify(ext.name))
-              // XXX Ideally not even generate defineMethod at all if there isn't any input here!
-              .join(" | ") || "never"
-          },
-          node: TNode,
-          dispatchMap: PartialDispatch<T>,
-        ): T {
-          const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
-          if (handler === undefined) {
-            const err = new Error(\`Semantic method '\${method}' not defined on '\${node._kind}'\`);
-            Error.captureStackTrace(err, dispatchMethod)
-            throw err
-          }
-          return handler(node as never)
-        }
-
-        function dispatchProperty<T, TNode extends Node>(
-          prop: ${
-            grammar.externals
-              .filter((ext) => ext.type === "property")
-              .map((ext) => JSON.stringify(ext.name))
-              // XXX Ideally not even generate defineMethod at all if there isn't any input here!
-              .join(" | ") || "never"
-          },
-          node: TNode,
-          dispatchMap: PartialDispatch<T>,
-        ): T {
-          const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
-          if (handler === undefined) {
-            const err = new Error(\`Semantic property '\${prop}' not defined on '\${node._kind}'\`);
-            Error.captureStackTrace(err, dispatchProperty)
-            throw err
-          }
-          return handler(node as never)
-        }
-
-        export type Node = ${grammar.nodes.map((node) => node.name).join(" | ")}
-
-        export function isRange(thing: unknown): thing is Range {
-            return (
-                Array.isArray(thing)
-                && thing.length === 2
-                && typeof thing[0] === 'number'
-                && typeof thing[1] === 'number'
-            )
-        }
-
-        export function isNode(node: Node): node is Node {
-            return (
-                ${grammar.nodes
-                  .map((node) => `node._kind === ${JSON.stringify(node.name)}`)
-                  .join(" || ")}
-            )
-        }
-    `)
+    export function isNode(node: Node): node is Node {
+      return (
+        ${grammar.nodes
+          .map((node) => `node._kind === ${JSON.stringify(node.name)}`)
+          .join(" || ")}
+      )
+    }
+  `)
 
   for (const node of grammar.nodes) {
     output.push(`
-            export interface ${node.name} extends Semantics {
-                _kind: ${JSON.stringify(node.name)}
-                ${node.fields
-                  .map((field) => `${field.name}: ${getTypeScriptType(field.pattern)}`)
-                  .join("\n")}
-                range: Range
-            }
-        `)
+      export interface ${node.name} extends Semantics {
+          _kind: ${JSON.stringify(node.name)}
+          ${node.fields
+            .map((field) => `${field.name}: ${getTypeScriptType(field.pattern)}`)
+            .join("\n")}
+          range: Range
+      }
+    `)
   }
 
   output.push("")
@@ -902,7 +891,7 @@ function generateCode(grammar: AGGrammar): string {
   output.push("  // Catch-all")
   output.push("  Node?(node: Node): T;")
 
-  // XXX Maybe also allow "Expr" rule as fallback for unions? If so, how to
+  // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
   // handle it when a node type is part of multiple unions?',
   output.push("}")
 
