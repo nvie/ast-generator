@@ -3,16 +3,6 @@ import * as ohm from "ohm-js";
 import prettier from "prettier";
 import invariant from "tiny-invariant";
 
-//
-// XXX Differences between semantic methods and properties:
-// - Properties are memoized, and thus their factory functions execute at most
-//   once per node instance
-// - Properties cannot have arguments
-// - Methods can IN THEORY have arguments (think a context), but we don't
-//   support that yet. Example could be: node.prettify({ indent: 2 })
-// - Both are lazily evaluated
-//
-
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"]);
 
 function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
