@@ -643,7 +643,6 @@ function generateMethodHelpers(grammar: AGGrammar): string {
         throw err
       }
 
-      // Ensure each semantic method will be defined at most once
       if (!(NOT_IMPLEMENTED in semanticMethods[name])) {
         const err = new Error(\`Semantic method '\${name}' is already defined\`)
         Error.captureStackTrace(err, defineMethod)
@@ -957,7 +956,6 @@ function generateCode(grammar: AGGrammar): string {
 
   output.push("")
   output.push("interface PartialDispatch<T> extends Partial<ExhaustiveDispatch<T>> {")
-  output.push("  // Catch-all")
   output.push("  Node?(node: Node): T;")
 
   // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
@@ -966,7 +964,6 @@ function generateCode(grammar: AGGrammar): string {
 
   output.push("")
   output.push("interface ExhaustiveDispatch<T> {")
-  output.push("  // Leafs")
   for (const node of grammar.nodes) {
     output.push(`  ${node.name}(node: ${node.name}): T;`)
   }
