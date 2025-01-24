@@ -529,6 +529,120 @@ function generateTypeCheckCondition(expected: AGPattern, actualValue: string): s
   return conditions.map((c) => `(${c})`).join(" && ")
 }
 
+function generateMethodHelpers(grammar: AGGrammar): string {
+  const methods = grammar.externals.filter((ext) => ext.type === "method")
+  if (methods.length === 0) {
+    return ""
+  }
+
+  const union = methods.map((ext) => JSON.stringify(ext.name)).join(" | ")
+  return `
+    // XXX Maybe just inline?
+    const mStub = (name: string) =>
+      stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
+
+    const semanticMethods = {
+      ${methods
+        .map((ext) => `${JSON.stringify(ext.name)}: mStub(${JSON.stringify(ext.name)}),`)
+        .join("\n")}
+    }
+
+    export function defineMethod<
+      M extends ${union}, 
+      R extends ReturnType<Semantics[M]>
+    >(name: M, dispatchMap: PartialDispatch<R>): void {
+      if (semanticMethods[name] === undefined) {
+        const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'external method \${name}()' in your grammar?\`)
+        Error.captureStackTrace(err, defineMethod)
+        throw err
+      }
+
+      // Ensure each semantic method will be defined at most once
+      if (!(NOT_IMPLEMENTED in semanticMethods[name])) {
+        const err = new Error(\`Semantic method '\${name}' is already defined\`)
+        Error.captureStackTrace(err, defineMethod)
+        throw err
+      }
+
+      semanticMethods[name] = (node: Node) => dispatchMethod(name, node, dispatchMap)
+    }
+
+    export function defineMethodExhaustively<
+      M extends ${union},
+      R extends ReturnType<Semantics[M]>
+    >(
+      name: M,
+      dispatchMap: ExhaustiveDispatch<R>,
+    ): void {
+      return defineMethod(name, dispatchMap);
+    }
+  `
+}
+
+function generatePropertyHelpers(grammar: AGGrammar): string {
+  const props = grammar.externals.filter((ext) => ext.type === "property")
+  if (props.length === 0) {
+    return ""
+  }
+
+  const union = props.map((ext) => JSON.stringify(ext.name)).join(" | ")
+  return `
+    const pStub = (name: string) =>
+      stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
+
+    const semanticPropertyFactories = {
+      ${props
+        .map((ext) => `${JSON.stringify(ext.name)}: pStub(${JSON.stringify(ext.name)}),`)
+        .join("\n")}
+    }
+
+    const memoedSemanticProperties = {
+      ${props.map((ext) => `${JSON.stringify(ext.name)}: new WeakMap(),`).join("\n")}
+    }
+
+    export function defineProperty<
+      P extends ${union},
+      R extends Semantics[P]
+    >(
+      name: P,
+      dispatchMap: PartialDispatch<R>,
+    ): void {
+      if (semanticPropertyFactories[name] === undefined) {
+        const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'external property \${name}' in your grammar?\`)
+        Error.captureStackTrace(err, defineProperty)
+        throw err
+      }
+
+      // Ensure each semantic property will be defined at most once
+      if (!(NOT_IMPLEMENTED in semanticPropertyFactories[name])) {
+        const err = new Error(\`Semantic property '\${name}' is already defined\`)
+        Error.captureStackTrace(err, defineProperty)
+        throw err
+      }
+
+      // TODO We can probably DRY a bunch of stuff up in here
+      semanticPropertyFactories[name] = (node: Node) => {
+        const cache = memoedSemanticProperties[name]
+        if (cache.has(node)) return cache.get(node)
+        const rv = dispatchProperty(name, node, dispatchMap)
+        cache.set(node, rv)
+        return rv
+      }
+    }
+
+    export function definePropertyExhaustively<
+      P extends ${union},
+      R extends Semantics[P]
+    >(
+      name: P,
+      dispatchMap: ExhaustiveDispatch<R>,
+    ): void {
+      return defineProperty(name, dispatchMap);
+    }
+
+  `
+}
+
 function parseGrammarFromPath(path: string): AGGrammar {
   const src = fs.readFileSync(path, "utf-8")
   return parseGrammarFromString(src)
@@ -656,131 +770,28 @@ function generateCode(grammar: AGGrammar): string {
           }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
         }
 
-        const pStub = (name: string) =>
-          stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
-
-        const mStub = (name: string) =>
-          stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
-
 // XXX DRY things up into a single registry
 
-        const semantics = {
-          ${grammar.externals
-            .map(
-              (ext) =>
-                `${JSON.stringify(ext.name)}: ${ext.type === "method" ? "mStub" : "pStub"}(${JSON.stringify(ext.name)}),`
-            )
-            .join("\n")}
-        }
+// XXX Would be nice to also allow defineMethod('name', (node) => ...) directly
+// XXX This API would not make sense for defineMethodExhaustively, though
 
-        const semanticMethods = {
-          ${grammar.externals
-            .filter((ext) => ext.type === "method")
-            .map(
-              (ext) => `${JSON.stringify(ext.name)}: mStub(${JSON.stringify(ext.name)}),`
-            )
-            .join("\n")}
-        }
-
-        const semanticPropertyFactories = {
-          ${grammar.externals
-            .filter((ext) => ext.type === "property")
-            .map(
-              (ext) => `${JSON.stringify(ext.name)}: pStub(${JSON.stringify(ext.name)}),`
-            )
-            .join("\n")}
-        }
-
-        const memoedSemanticProperties = {
-          ${grammar.externals
-            .filter((ext) => ext.type === "property")
-            .map((ext) => `${JSON.stringify(ext.name)}: new WeakMap(),`)
-            .join("\n")}
-        }
-
-        type SemanticProperty = ${
-          grammar.externals
-            .filter((ext) => ext.type === "property")
-            .map((ext) => JSON.stringify(ext.name))
-            .join(" | ") || "never"
-        }
-        type SemanticMethod = ${
-          grammar.externals
-            .filter((ext) => ext.type === "method")
-            .map((ext) => JSON.stringify(ext.name))
-            .join(" | ") || "never"
-        }
-        type Semantic = SemanticProperty | SemanticMethod;
-
-        export function defineMethod<M extends SemanticMethod>(
-          name: M,
-          dispatchMap: PartialDispatch<ReturnType<typeof semanticMethods[M]>>,
-        ): void {
-          if (semanticMethods[name] === undefined) {
-            const err = new Error(\`Unknown semantic method '\${name}'. Did you mean to declare 'external method \${name}()' in your grammar?\`)
-            Error.captureStackTrace(err, defineMethod)
-            throw err
-          }
-
-          // Ensure each semantic method will be defined at most once
-          if (!(NOT_IMPLEMENTED in semanticMethods[name])) {
-            const err = new Error(\`Semantic method '\${name}' is already defined\`)
-            Error.captureStackTrace(err, defineMethod)
-            throw err
-          }
-
-          semanticMethods[name] = (node: Node) => dispatchMethod(name, node, dispatchMap)
-        }
-
-        export function defineMethodExhaustively<M extends SemanticMethod>(
-          name: M,
-          dispatchMap: ExhaustiveDispatch<ReturnType<typeof semanticMethods[M]>>,
-        ): void {
-          return defineMethod(name, dispatchMap);
-        }
-
-        export function defineProperty<P extends SemanticProperty>(
-          name: P,
-          dispatchMap: PartialDispatch<ReturnType<typeof semanticPropertyFactories[P]>>,
-        ): void {
-          if (semanticPropertyFactories[name] === undefined) {
-            const err = new Error(\`Unknown semantic property '\${name}'. Did you mean to declare 'external property \${name}' in your grammar?\`)
-            Error.captureStackTrace(err, defineProperty)
-            throw err
-          }
-
-          // Ensure each semantic property will be defined at most once
-          if (!(NOT_IMPLEMENTED in semanticPropertyFactories[name])) {
-            const err = new Error(\`Semantic property '\${name}' is already defined\`)
-            Error.captureStackTrace(err, defineProperty)
-            throw err
-          }
-
-          // TODO We can probably DRY a bunch of stuff up in here
-          semanticPropertyFactories[name] = (node: Node) => {
-            const cache = memoedSemanticProperties[name]
-            if (cache.has(node)) return cache.get(node)
-            const rv = dispatchProperty(name, node, dispatchMap)
-            cache.set(node, rv)
-            return rv
-          }
-        }
-
-        export function definePropertyExhaustively<P extends SemanticProperty>(
-          name: P,
-          dispatchMap: ExhaustiveDispatch<ReturnType<typeof semanticPropertyFactories[P]>>,
-        ): void {
-          return defineProperty(name, dispatchMap);
-        }
+        ${generateMethodHelpers(grammar)}
+        ${generatePropertyHelpers(grammar)}
 
         function dispatchMethod<T, TNode extends Node>(
-          method: SemanticMethod,
+          method: ${
+            grammar.externals
+              .filter((ext) => ext.type === "method")
+              .map((ext) => JSON.stringify(ext.name))
+              // XXX Ideally not even generate defineMethod at all if there isn't any input here!
+              .join(" | ") || "never"
+          },
           node: TNode,
           dispatchMap: PartialDispatch<T>,
         ): T {
           const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
           if (handler === undefined) {
-            const err = new Error(\`Semantic method '\${method}' not defined for '\${node._kind}'\. Check your defineMethod("\${method}")\`);
+            const err = new Error(\`Semantic method '\${method}' not defined on '\${node._kind}'\`);
             Error.captureStackTrace(err, dispatchMethod)
             throw err
           }
@@ -788,13 +799,19 @@ function generateCode(grammar: AGGrammar): string {
         }
 
         function dispatchProperty<T, TNode extends Node>(
-          prop: SemanticProperty,
+          prop: ${
+            grammar.externals
+              .filter((ext) => ext.type === "property")
+              .map((ext) => JSON.stringify(ext.name))
+              // XXX Ideally not even generate defineMethod at all if there isn't any input here!
+              .join(" | ") || "never"
+          },
           node: TNode,
           dispatchMap: PartialDispatch<T>,
         ): T {
           const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
           if (handler === undefined) {
-            const err = new Error(\`Semantic property '\${prop}' not defined for '\${node._kind}'\. Check your defineProperty("\${prop}")\`);
+            const err = new Error(\`Semantic property '\${prop}' not defined on '\${node._kind}'\`);
             Error.captureStackTrace(err, dispatchProperty)
             throw err
           }
