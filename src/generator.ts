@@ -246,7 +246,7 @@ semantics.addAttribute<
   },
 
   quotedIdentifier(_lq, identifier, _rq): string {
-    return identifier.ast
+    return identifier.ast as string
   },
 
   AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
