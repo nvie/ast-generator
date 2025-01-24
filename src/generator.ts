@@ -587,10 +587,21 @@ function generateTypeCheckCondition(
 
 const onlyOnce = new WeakSet()
 
-function generateStub(): string {
+function generateStub(grammar: AGGrammar): string {
   if (onlyOnce.has(generateStub)) return ""
   onlyOnce.add(generateStub)
+
   return `
+    type SemanticReturnType<M extends ${grammar.externals
+      .map((ext) => JSON.stringify(ext.name))
+      .join(" | ")}> =
+      M extends keyof Semantics ?
+        ( Semantics[M] extends (...args: any[]) => infer R
+          ? R
+          : never )
+      : never;
+
+
     const NOT_IMPLEMENTED = Symbol();
 
     const stub = (msg: string) => {
@@ -611,7 +622,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
   // TODO Would be nice to also allow defineMethod('name', (node) => ...) directly
   // TODO This API would not make sense for defineMethodExhaustively, though
   return `
-    ${generateStub()}
+    ${generateStub(grammar)}
 
     const mStub = (name: string) =>
       stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
@@ -624,7 +635,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
 
     export function defineMethod<
       M extends ${union},
-      R extends ReturnType<Semantics[M]>
+      R extends SemanticReturnType<M>
     >(name: M, dispatchMap: PartialDispatch<R>): void {
       if (!semanticMethods.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'external method \${name}()' in your grammar?\`)
@@ -644,7 +655,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
 
     export function defineMethodExhaustively<
       M extends ${union},
-      R extends ReturnType<Semantics[M]>
+      R extends SemanticReturnType<M>
     >(
       name: M,
       dispatchMap: ExhaustiveDispatch<R>,
@@ -678,7 +689,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
   // TODO Would be nice to also allow defineProperty('name', (node) => ...) directly
   // TODO This API would not make sense for definePropertyExhaustively, though
   return `
-    ${generateStub()}
+    ${generateStub(grammar)}
 
     const pStub = (name: string) =>
       stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
