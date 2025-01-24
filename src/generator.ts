@@ -966,6 +966,7 @@ function writeFile(contents: string, path: string) {
   } else {
     // Output file is still up to date, let's not write (since it may
     // trigger another watch proc)
+    console.error(`Skipped ${path} (up to date)`)
   }
 }
 
