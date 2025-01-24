@@ -6,7 +6,7 @@ arbitrary ASTs
 
 ```mermaid
 flowchart LR
-    A["grammar.ast"] --> B["Run generate-ast"]
+    A["ast.grammar"] --> B["Run generate-ast"]
     B --> C["generated-ast.ts"]
 
     A@{ shape: doc }
@@ -18,7 +18,7 @@ It’s recommended to create the following standard file structure:
 
 ```
 mylang/
-  grammar.ast        // The input grammar
+  ast.grammar        // The input grammar
   generated-ast.ts   // The generated TypeScript module
   index.ts           // You define semantics here
 ```
@@ -27,11 +27,11 @@ mylang/
 
 Let’s define an example AST for a simple drawing program.
 
-The following grammar definition (in a file called `grammar.ast`) describes three nodes
+The following grammar definition (in a file called `ast.grammar`) describes three nodes
 (Document, Circle, Rect), and one union (Shape), with various properties.
 
 ```ts
-// grammar.ast
+// In ast.grammar
 
 Document {
   version?: number
@@ -148,6 +148,7 @@ console.log(G.isShape(mydoc.shapes[0])) // true
 To change the default discriminator field on all nodes:
 
 ```ts
+// In ast.grammar
 set discriminator "_kind"
 ```
 
@@ -182,7 +183,7 @@ can define custom properties and methods that will be available on every node.
 For example:
 
 ```ts
-// grammar.ast
+// In ast.grammar
 
 external property area
 external method prettify()
