@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- Change default discriminator field to `type`
 - Add support for changing discriminator field, using `set discriminator "_kind"` in the
   grammar
 - Add support for addition of external semantic properties/methods

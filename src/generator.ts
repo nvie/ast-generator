@@ -200,8 +200,7 @@ semantics.addAttribute<
       (s): s is AGSetStatement => s.type === "set"
     )
 
-    const discriminator =
-      settings.find((s) => s.key === "discriminator")?.value ?? "_kind"
+    const discriminator = settings.find((s) => s.key === "discriminator")?.value ?? "type"
 
     // Node definitions
     const defs = defList.children.map((d) => d.ast as AGDef)

@@ -66,7 +66,7 @@ This definition will generate a TypeScript module with the following things in i
 export type Node = Document | Shape | Circle
 
 export type Document = {
-  _kind: "Document"
+  type: "Document"
   version: number | null
   shapes: Shape[]
 }
@@ -74,14 +74,14 @@ export type Document = {
 export type Shape = Circle | Rect
 
 export type Circle = {
-  _kind: "Circle"
+  type: "Circle"
   cx: number
   cy: number
   r: number
 }
 
 export type Rect = {
-  _kind: "Rect"
+  type: "Rect"
   x: number
   y: number
   width: number
@@ -148,20 +148,20 @@ console.log(G.isShape(mydoc.shapes[0])) // true
 To change the default discriminator field on all nodes:
 
 ```ts
-set discriminator "type"
+set discriminator "_kind"
 ```
 
 This would produce the node types as:
 
 ```ts
 export type Document = {
-  type: "Document" // 👈
+  _kind: "Document" // 👈
   version: number | null
   shapes: Shape[]
 }
 
 export type Circle = {
-  type: "Circle" // 👈
+  _kind: "Circle" // 👈
   cx: number
   cy: number
   r: number
@@ -172,7 +172,7 @@ You can use the following settings to configure the generated output:
 
 | Setting         | Default Value | Description                                                            |
 | --------------- | ------------- | ---------------------------------------------------------------------- |
-| `discriminator` | `"_kind"`     | The discriminating field added to every node to identify its node type |
+| `discriminator` | `"type"`      | The discriminating field added to every node to identify its node type |
 
 ## Assigning semantic meaning to nodes
 
