@@ -2,6 +2,7 @@
 
 exports[`parsing grammars > parses a grammar 1`] = `
 {
+  "discriminator": "_kind",
   "externals": [
     {
       "name": "myProp1",

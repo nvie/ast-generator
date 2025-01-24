@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Add support for changing discriminator field, using `set discriminator "_kind"` in the
+  grammar
 - Add support for addition of external semantic properties/methods
 
 ## [0.3.0] - 2025-01-20

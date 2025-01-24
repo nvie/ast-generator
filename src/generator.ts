@@ -51,6 +51,8 @@ type AGNodeDef = {
   fields: AGField[]
 }
 
+type AGSetting = AGExternalDefinition | AGSetStatement
+type AGSetStatement = { type: "set"; key: string; value: string }
 type AGExternalDefinition = AGExternalProperty | AGExternalMethod
 type AGExternalProperty = { type: "property"; name: string }
 type AGExternalMethod = { type: "method"; name: string }
@@ -60,6 +62,7 @@ type AGDef = AGUnionDef | AGNodeDef
 type LUT<T> = Record<string, T>
 
 type AGGrammar = {
+  discriminator: string
   externals: AGExternalDefinition[]
   startNode: string
 
@@ -82,44 +85,62 @@ function takeWhile<T>(items: T[], predicate: (item: T) => boolean): T[] {
   return result
 }
 
-function partition<T>(items: T[], predicate: (item: T) => boolean): [T[], T[]] {
-  const gold: T[] = []
-  const dirt: T[] = []
-  for (const item of items) {
-    if (predicate(item)) {
-      gold.push(item)
+export function partition<T, N extends T>(
+  it: Iterable<T>,
+  pred: (x: T) => x is N
+): [N[], Exclude<T, N>[]]
+export function partition<T>(it: Iterable<T>, pred: (x: T) => boolean): [T[], T[]]
+export function partition<T>(it: Iterable<T>, pred: (x: T) => boolean): [T[], T[]] {
+  const good = []
+  const bad = []
+
+  for (const item of it) {
+    if (pred(item)) {
+      good.push(item)
     } else {
-      dirt.push(item)
+      bad.push(item)
     }
   }
-  return [gold, dirt]
+
+  return [good, bad]
 }
 
 const grammar = ohm.grammar(String.raw`
     AstGeneratorGrammar {
-      Start = ExternalDeclaration* Def+
+      Start = Setting* Def+
 
       // Override Ohm's built-in definition of space
       space := "\u0000".." " | comment
       comment = "#" (~"\n" any)*
-      nodename (a node name) = upper alnum*
-      identifier (an identifier) = ~keyword letter alnum*
+      wordchar = alnum | "_"
+      identStart = letter | "_"
+      nodename (a node name) = upper wordchar*
+      identifier (an identifier) = ~keyword identStart wordchar*
+      quotedIdentifier = "\"" identifier "\""
 
       // Keywords
-      keyword = external | property | method
-      external = "external" ~alnum
-      property = "property" ~alnum
-      method   = "method" ~alnum
+      keyword = external | property | method | set
+      external = "external" ~wordchar
+      property = "property" ~wordchar
+      method   = "method" ~wordchar
+      set      = "set" ~wordchar
+
+      Setting
+        = SetStatement
+        | ExternalDeclaration
+
+      SetStatement
+        = set "discriminator" quotedIdentifier
 
       ExternalDeclaration
         = ExternalPropertyDeclaration
         | ExternalMethodDeclaration
 
       ExternalPropertyDeclaration
-        = "external" "property" identifier
+        = external property identifier
 
       ExternalMethodDeclaration
-        = "external" "method" identifier "(" ")"
+        = external method identifier "(" ")"
 
       Def
         = AGNodeDef
@@ -158,6 +179,7 @@ const semantics = grammar.createSemantics()
 
 semantics.addAttribute<
   | AGGrammar
+  | AGSetting
   | AGExternalDefinition
   | AGNodeDef
   | AGUnionDef
@@ -167,14 +189,22 @@ semantics.addAttribute<
   | BuiltinType
   | string
 >("ast", {
-  nodename(_upper, _alnum): string { return this.sourceString }, // prettier-ignore
-  identifier(_letter, _alnum): string { return this.sourceString }, // prettier-ignore
+  nodename(_upper, _wordchar): string { return this.sourceString }, // prettier-ignore
+  identifier(_letter, _wordchar): string { return this.sourceString }, // prettier-ignore
 
-  Start(externalDecls, defList): AGGrammar {
-    const externals = externalDecls.children.map((d) => d.ast as AGExternalDefinition)
+  Start(settingList, defList): AGGrammar {
+    // Settings
+    const statements = settingList.children.map((d) => d.ast as AGSetting)
+    const [settings, externals] = partition(
+      statements,
+      (s): s is AGSetStatement => s.type === "set"
+    )
 
+    const discriminator =
+      settings.find((s) => s.key === "discriminator")?.value ?? "_kind"
+
+    // Node definitions
     const defs = defList.children.map((d) => d.ast as AGDef)
-
     const unionsByName: LUT<AGUnionDef> = {}
     const nodesByName: LUT<AGNodeDef> = {}
 
@@ -187,10 +217,10 @@ semantics.addAttribute<
     }
 
     return {
-      externals,
-
       // The first-defined node in the document is the start node
       startNode: Object.keys(nodesByName)[0]!,
+      discriminator,
+      externals,
 
       nodesByName,
       nodes: Object.keys(nodesByName)
@@ -210,6 +240,14 @@ semantics.addAttribute<
 
   ExternalMethodDeclaration(_e, _m, identifier, _lp, _rp): AGExternalMethod {
     return { type: "method", name: identifier.ast as string }
+  },
+
+  SetStatement(_set, settingName, quotedName): AGSetStatement {
+    return { type: "set", key: settingName.sourceString, value: quotedName.ast as string }
+  },
+
+  quotedIdentifier(_lq, identifier, _rq): string {
+    return identifier.ast
   },
 
   AGNodeDef(name, _lbracket, fieldList, _rbracket): AGNodeDef {
@@ -439,12 +477,23 @@ function validate(grammar: AGGrammar) {
     }
   }
 
+  const semanticFields = [...grammar.externals.map((ext) => ext.name)]
+
   for (const node of grammar.nodes) {
     for (const field of node.fields) {
       invariant(
-        !field.name.startsWith("_"),
-        `Illegal field name: "${node.name}.${field.name}" (fields starting with "_" are reserved)`
+        field.name !== grammar.discriminator,
+        `Field '${node.name}.${field.name}' conflicts with built-in discriminator field`
       )
+      invariant(
+        field.name !== "range",
+        `Field '${node.name}.${field.name}' conflicts with built-in range property`
+      )
+      invariant(
+        !semanticFields.includes(field.name),
+        `Field '${node.name}.${field.name}' conflicts with semantic property/method`
+      )
+
       const bare = getBareRef(field.pattern)
       const base = getNodeRef(field.pattern)
       referenced.add(bare)
@@ -475,11 +524,13 @@ function validate(grammar: AGGrammar) {
 function generateAssertParam(
   fieldName: string, // actualKindValue
   fieldPat: AGPattern, // expectedNode
-  currentContext: string
+  currentContext: string,
+  discriminator: string
 ): string {
   return `assert(${generateTypeCheckCondition(
     fieldPat,
-    fieldName
+    fieldName,
+    discriminator
   )}, \`Invalid value for "${fieldName}" arg in ${JSON.stringify(
     currentContext
   )} call.\\nExpected: ${serializeRef(
@@ -487,12 +538,16 @@ function generateAssertParam(
   )}\\nGot:      \${JSON.stringify(${fieldName})}\`)`
 }
 
-function generateTypeCheckCondition(expected: AGPattern, actualValue: string): string {
+function generateTypeCheckCondition(
+  expected: AGPattern,
+  actualValue: string,
+  discriminator: string
+): string {
   const conditions = []
 
   if (expected.ref === "Optional") {
     conditions.push(
-      `${actualValue} === null || ${generateTypeCheckCondition(expected.of, actualValue)}`
+      `${actualValue} === null || ${generateTypeCheckCondition(expected.of, actualValue, discriminator)}`
     )
   } else if (expected.ref === "List") {
     conditions.push(`Array.isArray(${actualValue})`)
@@ -500,7 +555,7 @@ function generateTypeCheckCondition(expected: AGPattern, actualValue: string): s
       conditions.push(`${actualValue}.length > 0`)
     }
     conditions.push(
-      `${actualValue}.every(item => ${generateTypeCheckCondition(expected.of, "item")})`
+      `${actualValue}.every(item => ${generateTypeCheckCondition(expected.of, "item", discriminator)})`
     )
   } else if (expected.ref === "NodeUnion") {
     conditions.push(`is${expected.name}(${actualValue})`)
@@ -523,7 +578,9 @@ function generateTypeCheckCondition(expected: AGPattern, actualValue: string): s
         .join(" || ")})`
     )
   } else {
-    conditions.push(`${actualValue}._kind === ${JSON.stringify(expected.name)}`)
+    conditions.push(
+      `${actualValue}.${discriminator} === ${JSON.stringify(expected.name)}`
+    )
   }
 
   return conditions.map((c) => `(${c})`).join(" && ")
@@ -601,9 +658,9 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       node: TNode,
       dispatchMap: PartialDispatch<T>,
     ): T {
-      const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
+      const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
-        const err = new Error(\`Semantic method '\${method}' not defined on '\${node._kind}'\`);
+        const err = new Error(\`Semantic method '\${method}' not defined on '\${node.${grammar.discriminator}}'\`);
         Error.captureStackTrace(err, dispatchMethod)
         throw err
       }
@@ -682,9 +739,9 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       node: TNode,
       dispatchMap: PartialDispatch<T>,
     ): T {
-      const handler = dispatchMap[node._kind] ?? dispatchMap.Node;
+      const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
-        const err = new Error(\`Semantic property '\${prop}' not defined on '\${node._kind}'\`);
+        const err = new Error(\`Semantic property '\${prop}' not defined on '\${node.${grammar.discriminator}}'\`);
         Error.captureStackTrace(err, dispatchProperty)
         throw err
       }
@@ -776,7 +833,9 @@ function generateCode(grammar: AGGrammar): string {
       (ref) => getBareRefTarget(ref) === "Node"
     )
     const conditions = subNodes
-      .map((ref) => `node._kind === ${JSON.stringify(getBareRef(ref))}`)
+      .map(
+        (ref) => `node.${grammar.discriminator} === ${JSON.stringify(getBareRef(ref))}`
+      )
       .concat(subUnions.map((ref) => `is${getBareRef(ref)}(node)`))
     output.push(`
           export function is${union.name}(node: Node): node is ${union.name} {
@@ -821,7 +880,7 @@ function generateCode(grammar: AGGrammar): string {
     export function isNode(node: Node): node is Node {
       return (
         ${grammar.nodes
-          .map((node) => `node._kind === ${JSON.stringify(node.name)}`)
+          .map((node) => `node.${grammar.discriminator} === ${JSON.stringify(node.name)}`)
           .join(" || ")}
       )
     }
@@ -830,7 +889,7 @@ function generateCode(grammar: AGGrammar): string {
   for (const node of grammar.nodes) {
     output.push(`
       export interface ${node.name} extends Semantics {
-          _kind: ${JSON.stringify(node.name)}
+          ${grammar.discriminator}: ${JSON.stringify(node.name)}
           ${node.fields
             .map((field) => `${field.name}: ${getTypeScriptType(field.pattern)}`)
             .join("\n")}
@@ -851,7 +910,7 @@ function generateCode(grammar: AGGrammar): string {
     )
 
     const runtimeTypeChecks = node.fields.map((field) =>
-      generateAssertParam(field.name, field.pattern, node.name)
+      generateAssertParam(field.name, field.pattern, node.name, grammar.discriminator)
     )
     runtimeTypeChecks.push(`assertRange(range, ${JSON.stringify(node.name)})`)
 
@@ -872,7 +931,7 @@ function generateCode(grammar: AGGrammar): string {
                     : ""
                 }
                 return asNode({
-                    _kind: ${JSON.stringify(node.name)},
+                    ${grammar.discriminator}: ${JSON.stringify(node.name)},
                     ${[...node.fields.map((field) => field.name), "range"].join(", ")}
                 });
             }
@@ -903,14 +962,12 @@ function generateCode(grammar: AGGrammar): string {
   }
   output.push("}")
 
-  output.push(
-    `
-      export function visit<TNode extends Node>(node: TNode, visitor: Visitor<undefined>): TNode;
-      export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext>, context: TContext): TNode;
-      export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext | undefined>, context?: TContext): TNode {
-        switch (node._kind) {
-        `
-  )
+  output.push(`
+    export function visit<TNode extends Node>(node: TNode, visitor: Visitor<undefined>): TNode;
+    export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext>, context: TContext): TNode;
+    export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext | undefined>, context?: TContext): TNode {
+      switch (node.${grammar.discriminator}) {
+  `)
 
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
@@ -944,14 +1001,12 @@ function generateCode(grammar: AGGrammar): string {
     output.push("")
   }
 
-  output.push(
-    `
-        }
-
-        return node;
+  output.push(`
       }
-      `
-  )
+
+      return node;
+    }
+  `)
 
   return output.join("\n")
 }

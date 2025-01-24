@@ -143,13 +143,36 @@ console.log(G.isShape(mydoc)) // false
 console.log(G.isShape(mydoc.shapes[0])) // true
 ```
 
-## Settings (TODO)
+## Settings
 
-> [!NOTE]  
-> The following does not exist yet, but I want to add support for this!
->
-> - Add setting to change the discriminator field
-> - Default the discriminator to `type`, not `_kind`
+To change the default discriminator field on all nodes:
+
+```ts
+set discriminator "type"
+```
+
+This would produce the node types as:
+
+```ts
+export type Document = {
+  type: "Document" // 👈
+  version: number | null
+  shapes: Shape[]
+}
+
+export type Circle = {
+  type: "Circle" // 👈
+  cx: number
+  cy: number
+  r: number
+}
+```
+
+You can use the following settings to configure the generated output:
+
+| Setting         | Default Value | Description                                                            |
+| --------------- | ------------- | ---------------------------------------------------------------------- |
+| `discriminator` | `"_kind"`     | The discriminating field added to every node to identify its node type |
 
 ## Assigning semantic meaning to nodes
 
