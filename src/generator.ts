@@ -610,6 +610,13 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
           : never )
       : never;
 
+    type SemanticPropertyType<P extends ${grammar.externals
+      .map((ext) => JSON.stringify(ext.name))
+      .join(" | ")}> =
+      P extends keyof Semantics ?
+        ( Semantics[P] extends infer UP ? UP : never )
+      : never;
+
     interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
       afterEach?(node: Node, context: C): void;
       Node?(node: Node, context: C): T;${
@@ -746,7 +753,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
 
     export function defineProperty<
       P extends ${union},
-      R extends Semantics[P]
+      R extends SemanticPropertyType<P>
     >(
       name: P,
       dispatchMap: PartialDispatch<R, undefined>,
@@ -776,7 +783,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
 
     export function definePropertyExhaustively<
       P extends ${union},
-      R extends Semantics[P]
+      R extends SemanticPropertyType<P>
     >(
       name: P,
       dispatchMap: ExhaustiveDispatch<R, undefined>,
