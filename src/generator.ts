@@ -587,9 +587,9 @@ function generateTypeCheckCondition(
 
 const onlyOnce = new WeakSet()
 
-function generateStub(grammar: AGGrammar): string {
-  if (onlyOnce.has(generateStub)) return ""
-  onlyOnce.add(generateStub)
+function generateCommonSemanticHelpers(grammar: AGGrammar): string {
+  if (onlyOnce.has(generateCommonSemanticHelpers)) return ""
+  onlyOnce.add(generateCommonSemanticHelpers)
 
   return `
     type SemanticReturnType<M extends ${grammar.externals
@@ -609,6 +609,21 @@ function generateStub(grammar: AGGrammar): string {
           ? A
           : never )
       : never;
+
+    interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
+      Node?(node: Node, context: C): T;${
+        /*
+        // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
+        // handle it when a node type is part of multiple unions?',
+      */ ""
+      }
+    }
+
+    interface ExhaustiveDispatch<T, C> {
+      ${grammar.nodes
+        .map((node) => `  ${node.name}(node: ${node.name}, context: C): T;`)
+        .join("\n")}
+    }
 
     const NOT_IMPLEMENTED = Symbol();
 
@@ -630,7 +645,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
   // TODO Would be nice to also allow defineMethod('name', (node) => ...) directly
   // TODO This API would not make sense for defineMethodExhaustively, though
   return `
-    ${generateStub(grammar)}
+    ${generateCommonSemanticHelpers(grammar)}
 
     const mStub = (name: string) =>
       stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
@@ -700,7 +715,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
   // TODO Would be nice to also allow defineProperty('name', (node) => ...) directly
   // TODO This API would not make sense for definePropertyExhaustively, though
   return `
-    ${generateStub(grammar)}
+    ${generateCommonSemanticHelpers(grammar)}
 
     const pStub = (name: string) =>
       stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
@@ -983,23 +998,6 @@ function generateCode(grammar: AGGrammar): string {
   output.push("interface Visitor<C> {")
   for (const node of grammar.nodes) {
     output.push(`  ${node.name}?(node: ${node.name}, context: C): void;`)
-  }
-  output.push("}")
-
-  output.push("")
-  output.push(
-    "interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {"
-  )
-  output.push("  Node?(node: Node, context: C): T;")
-
-  // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
-  // handle it when a node type is part of multiple unions?',
-  output.push("}")
-
-  output.push("")
-  output.push("interface ExhaustiveDispatch<T, C> {")
-  for (const node of grammar.nodes) {
-    output.push(`  ${node.name}(node: ${node.name}, context: C): T;`)
   }
   output.push("}")
 
