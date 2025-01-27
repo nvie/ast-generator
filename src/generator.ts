@@ -885,6 +885,21 @@ function generateCode(grammar: AGGrammar): string {
 
     export type Node = ${grammar.nodes.map((node) => node.name).join(" | ")}
 
+    export type ChildrenOf<N extends Node> = {
+      ${grammar.nodes
+        .map((node) => {
+          const nodeType = node.name
+          const childTypes = new Set(
+            node.fields
+              .map((f) => getNodeRef(f.pattern))
+              .filter((ref) => !isBuiltInType(ref))
+              .map((ref) => ref.name)
+          )
+          return `${JSON.stringify(nodeType)}: ${[...childTypes].join(" | ") || "never"},`
+        })
+        .join("\n")}
+    }[N[${JSON.stringify(grammar.discriminator)}]];
+
     export type Range = [number, number]
 
     export function isRange(thing: unknown): thing is Range {
