@@ -1028,6 +1028,8 @@ function generateCode(grammar: AGGrammar): string {
   }
   output.push("}")
 
+  // XXX Do we still need visit? Can we rename it into a more useful built-in
+  // semantic method, so we no longer need to use the "afterEach" hack?
   output.push(`
     export function visit(node: Node, visitor: Visitor<undefined>): void;
     export function visit<C>(node: Node, visitor: Visitor<C>, context: C): void;
