@@ -601,11 +601,19 @@ function generateStub(grammar: AGGrammar): string {
           : never )
       : never;
 
+    type SemanticContextType<M extends ${grammar.externals
+      .map((ext) => JSON.stringify(ext.name))
+      .join(" | ")}> =
+      M extends keyof Semantics ?
+        ( Semantics[M] extends (...args: infer A) => any
+          ? A
+          : never )
+      : never;
 
     const NOT_IMPLEMENTED = Symbol();
 
     const stub = (msg: string) => {
-      return Object.defineProperty((_node: Node): any => {
+      return Object.defineProperty((_node: Node, _context: any): any => {
         throw new Error(msg)
       }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
     }
@@ -635,8 +643,9 @@ function generateMethodHelpers(grammar: AGGrammar): string {
 
     export function defineMethod<
       M extends ${union},
-      R extends SemanticReturnType<M>
-    >(name: M, dispatchMap: PartialDispatch<R>): void {
+      R = SemanticReturnType<M>,
+      C = SemanticContextType<M>,
+    >(name: M, dispatchMap: PartialDispatch<R, C>): void {
       if (!semanticMethods.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'external method \${name}()' in your grammar?\`)
         Error.captureStackTrace(err, defineMethod)
@@ -649,23 +658,26 @@ function generateMethodHelpers(grammar: AGGrammar): string {
         throw err
       }
 
-      semanticMethods[name] = (node: Node) => dispatchMethod(name, node, dispatchMap)
+      semanticMethods[name] =
+        (node: Node, context: C) => dispatchMethod(name, node, dispatchMap, context)
     }
 
     export function defineMethodExhaustively<
       M extends ${union},
-      R extends SemanticReturnType<M>
+      R = SemanticReturnType<M>,
+      C = SemanticContextType<M>,
     >(
       name: M,
-      dispatchMap: ExhaustiveDispatch<R>,
+      dispatchMap: ExhaustiveDispatch<R, C>,
     ): void {
       return defineMethod(name, dispatchMap);
     }
 
-    function dispatchMethod<T, TNode extends Node>(
-      method: ${union},
+    function dispatchMethod<T, M extends ${union}, TNode extends Node, C = SemanticContextType<M>>(
+      method: M,
       node: TNode,
-      dispatchMap: PartialDispatch<T>,
+      dispatchMap: PartialDispatch<T, C>,
+      context: C,
     ): T {
       const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
@@ -673,7 +685,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
         Error.captureStackTrace(err, dispatchMethod)
         throw err
       }
-      return handler(node as never)
+      return handler(node as never, context)
     }
   `
 }
@@ -826,7 +838,12 @@ function generateCode(grammar: AGGrammar): string {
           .filter((ext) => ext.type === "method")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: { value: () => semanticMethods[${JSON.stringify(ext.name)}](self), enumerable: false, },`
+              `${JSON.stringify(ext.name)}: {
+                value<C extends unknown = unknown>(context: C) {
+                  return semanticMethods[${JSON.stringify(ext.name)}](self, context)
+                },
+                enumerable: false,
+              },`
           )
           .join("\n")}
       }) as N
@@ -955,17 +972,19 @@ function generateCode(grammar: AGGrammar): string {
   output.push("}")
 
   output.push("")
-  output.push("interface PartialDispatch<T> extends Partial<ExhaustiveDispatch<T>> {")
-  output.push("  Node?(node: Node): T;")
+  output.push(
+    "interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {"
+  )
+  output.push("  Node?(node: Node, context: C): T;")
 
   // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
   // handle it when a node type is part of multiple unions?',
   output.push("}")
 
   output.push("")
-  output.push("interface ExhaustiveDispatch<T> {")
+  output.push("interface ExhaustiveDispatch<T, C> {")
   for (const node of grammar.nodes) {
-    output.push(`  ${node.name}(node: ${node.name}): T;`)
+    output.push(`  ${node.name}(node: ${node.name}, context: C): T;`)
   }
   output.push("}")
 
