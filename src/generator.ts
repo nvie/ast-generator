@@ -669,7 +669,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     ): T {
       const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
-        const err = new Error(\`Semantic method '\${method}' not defined on '\${node.${grammar.discriminator}}'\`);
+        const err = new Error(\`Semantic method '\${method}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
         Error.captureStackTrace(err, dispatchMethod)
         throw err
       }
@@ -750,7 +750,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     ): T {
       const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
-        const err = new Error(\`Semantic property '\${prop}' not defined on '\${node.${grammar.discriminator}}'\`);
+        const err = new Error(\`Semantic property '\${prop}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
         Error.captureStackTrace(err, dispatchProperty)
         throw err
       }

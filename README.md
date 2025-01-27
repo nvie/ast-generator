@@ -234,7 +234,7 @@ const mydoc = G.document(1, [
 
 console.log(mydoc.shapes[0].area) // 78.54
 console.log(mydoc.shapes[1].area) // 100
-console.log(mydoc.area) // Error: Semantic property 'area' not defined on 'Document'
+console.log(mydoc.area) // Error: Semantic property 'area' is only partially defined and missing definition for 'Document'
 ```
 
 Step 1️⃣ is to augment the `Semantics` interface. This will make TypeScript understand that
@@ -292,7 +292,7 @@ const mydoc = G.document(1, [
 
 console.log(mydoc.shapes[0].area) // 78.54
 console.log(mydoc.shapes[1].area) // 100
-console.log(mydoc.area) // Error: Semantic property 'area' not defined on 'Document'
+console.log(mydoc.area) // Error: Semantic property 'area' is only partially defined and missing definition for 'Document'
 ```
 
 ### Should I use a property or method?
