@@ -611,6 +611,7 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
       : never;
 
     interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
+      afterEach?(node: Node, context: C): void;
       Node?(node: Node, context: C): T;${
         /*
         // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
@@ -696,11 +697,24 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     ): T {
       const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
-        const err = new Error(\`Semantic method '\${method}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
-        Error.captureStackTrace(err, dispatchMethod)
-        throw err
+        if (dispatchMap.afterEach === undefined) {
+          const err = new Error(\`Semantic method '\${method}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
+          Error.captureStackTrace(err, dispatchMethod)
+          throw err
+        }
       }
-      return handler(node as never, context)
+
+      const rv = handler?.(node as never, context)
+      dispatchMap.afterEach?.(node, context)
+      return rv ${
+        // XXX Allowing afterEach is pragmatic, but really it only makes sense
+        // to do so for method definitions that are side effects, i.e. return
+        // `void`.
+        //
+        // Above, `handler?.()` should really just be `handler()`
+        "as T"
+      }
+
     }
   `
 }
