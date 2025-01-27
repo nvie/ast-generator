@@ -749,7 +749,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       R extends Semantics[P]
     >(
       name: P,
-      dispatchMap: PartialDispatch<R>,
+      dispatchMap: PartialDispatch<R, undefined>,
     ): void {
       if (!semanticPropertyFactories.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'external property \${name}' in your grammar?\`)
@@ -779,7 +779,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       R extends Semantics[P]
     >(
       name: P,
-      dispatchMap: ExhaustiveDispatch<R>,
+      dispatchMap: ExhaustiveDispatch<R, undefined>,
     ): void {
       return defineProperty(name, dispatchMap);
     }
@@ -787,7 +787,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     function dispatchProperty<T, N extends Node>(
       prop: ${union},
       node: N,
-      dispatchMap: PartialDispatch<T>,
+      dispatchMap: PartialDispatch<T, undefined>,
     ): T {
       const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
       if (handler === undefined) {
@@ -795,7 +795,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
         Error.captureStackTrace(err, dispatchProperty)
         throw err
       }
-      return handler(node as never)
+      return handler(node as never, undefined)
     }
   `
 }
@@ -865,7 +865,7 @@ function generateCode(grammar: AGGrammar): string {
           .filter((ext) => ext.type === "property")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: { get: () => semanticPropertyFactories[${JSON.stringify(ext.name)}](self), enumerable: false },`
+              `${JSON.stringify(ext.name)}: { get: () => semanticPropertyFactories[${JSON.stringify(ext.name)}](self, undefined), enumerable: false },`
           )
           .join("\n")}
         ${grammar.externals
