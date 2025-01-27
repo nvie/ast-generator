@@ -688,9 +688,9 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       return defineMethod(name, dispatchMap);
     }
 
-    function dispatchMethod<T, M extends ${union}, TNode extends Node, C = SemanticContextType<M>>(
+    function dispatchMethod<T, M extends ${union}, N extends Node, C = SemanticContextType<M>>(
       method: M,
-      node: TNode,
+      node: N,
       dispatchMap: PartialDispatch<T, C>,
       context: C,
     ): T {
@@ -770,9 +770,9 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       return defineProperty(name, dispatchMap);
     }
 
-    function dispatchProperty<T, TNode extends Node>(
+    function dispatchProperty<T, N extends Node>(
       prop: ${union},
-      node: TNode,
+      node: N,
       dispatchMap: PartialDispatch<T>,
     ): T {
       const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
@@ -839,9 +839,14 @@ function generateCode(grammar: AGGrammar): string {
       throw new Error(errmsg);
     }
 
-    function asNode<N extends Node>(node: Omit<N, keyof Semantics>): N {
+    function asNode<N extends Node>(node: Omit<N, keyof Semantics | "forEach">): N {
       const self = Object.defineProperties(node, {
         range: { enumerable: false },
+        forEach: {
+          enumerable: false,
+          value: (callback: (child: ChildrenOf<N>) => void) => { forEach(self, callback) },
+        },
+
         ${grammar.externals
           .filter((ext) => ext.type === "property")
           .map(
@@ -949,7 +954,8 @@ function generateCode(grammar: AGGrammar): string {
           ${node.fields
             .map((field) => `${field.name}: ${getTypeScriptType(field.pattern)}`)
             .join("\n")}
-          range: Range
+          range: Range;
+          forEach(callback: (child: ChildrenOf<${node.name}>) => void): void;
       }
     `)
   }
@@ -1002,31 +1008,44 @@ function generateCode(grammar: AGGrammar): string {
   output.push("}")
 
   output.push(`
-    export function visit<TNode extends Node>(node: TNode, visitor: Visitor<undefined>): TNode;
-    export function visit<TNode extends Node, C>(node: TNode, visitor: Visitor<C>, context: C): TNode;
-    export function visit<TNode extends Node, C>(node: TNode, visitor: Visitor<C | undefined>, context?: C): TNode {
+    export function visit(node: Node, visitor: Visitor<undefined>): void;
+    export function visit<C>(node: Node, visitor: Visitor<C>, context: C): void;
+    export function visit<C>(node: Node, visitor: Visitor<C | undefined>, context?: C): void {
+      visitor[node.${grammar.discriminator}]?.(node as any, context);
+      forEach(node, (child) => visit(child, visitor, context));
+    }
+
+    export function forEach<N extends Node>(
+      node: N,
+      callback: (node: ChildrenOf<N>) => void,
+    ): void {
       switch (node.${grammar.discriminator}) {
   `)
 
+  const nodeNamesWithoutChildren = new Set<string>()
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
       (field) => !isBuiltInType(getNodeRef(field.pattern))
     )
 
+    if (fields.length === 0) {
+      nodeNamesWithoutChildren.add(node.name)
+      continue
+    }
+
+    output.push("")
     output.push(`case ${JSON.stringify(node.name)}:`)
-    output.push(`  visitor.${node.name}?.(node, context);`)
     for (const field of fields) {
       switch (field.pattern.ref) {
         case "Node":
         case "NodeUnion":
-          output.push(`  visit(node.${field.name}, visitor, context);`)
+          output.push(`  callback(node.${field.name} as ChildrenOf<N>)`)
           break
 
         case "List":
-          output.push(
-            `  node.${field.name}.forEach(${field.name[0]!} => visit(${field
-              .name[0]!}, visitor, context));`
-          )
+          output.push(`  for (const child of node.${field.name}) {`)
+          output.push(`    callback(child as ChildrenOf<N>)`)
+          output.push(`  }`)
           break
 
         case "Optional":
@@ -1037,13 +1056,19 @@ function generateCode(grammar: AGGrammar): string {
       }
     }
     output.push("  break;")
-    output.push("")
   }
+
+  output.push("")
+  for (const nodeName of nodeNamesWithoutChildren) {
+    output.push(`case ${JSON.stringify(nodeName)}:`)
+  }
+  if (nodeNamesWithoutChildren.size > 0) {
+    output.push("  /* These node types don't have any child nodes */")
+  }
+  output.push("  break;")
 
   output.push(`
       }
-
-      return node;
     }
   `)
 
