@@ -948,9 +948,9 @@ function generateCode(grammar: AGGrammar): string {
   }
 
   // Generate a general purpose AST traversal/visit function
-  output.push("interface Visitor<TContext> {")
+  output.push("interface Visitor<C> {")
   for (const node of grammar.nodes) {
-    output.push(`  ${node.name}?(node: ${node.name}, context: TContext): void;`)
+    output.push(`  ${node.name}?(node: ${node.name}, context: C): void;`)
   }
   output.push("}")
 
@@ -971,8 +971,8 @@ function generateCode(grammar: AGGrammar): string {
 
   output.push(`
     export function visit<TNode extends Node>(node: TNode, visitor: Visitor<undefined>): TNode;
-    export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext>, context: TContext): TNode;
-    export function visit<TNode extends Node, TContext>(node: TNode, visitor: Visitor<TContext | undefined>, context?: TContext): TNode {
+    export function visit<TNode extends Node, C>(node: TNode, visitor: Visitor<C>, context: C): TNode;
+    export function visit<TNode extends Node, C>(node: TNode, visitor: Visitor<C | undefined>, context?: C): TNode {
       switch (node.${grammar.discriminator}) {
   `)
 
