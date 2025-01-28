@@ -6,11 +6,11 @@ describe("parsing grammars", () => {
   it("parses a grammar", () => {
     expect(
       parseGrammarFromString(`
-external property myProp1
-external property myProp2
-external method doSomething()
-external method doSomethingElse()
-external property myProp3
+semantic property myProp1
+semantic property myProp2
+semantic method doSomething()
+semantic method doSomethingElse()
+semantic property myProp3
 
 # This is a comment
 Abc {

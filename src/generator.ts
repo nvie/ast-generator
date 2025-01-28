@@ -51,11 +51,11 @@ type AGNodeDef = {
   fields: AGField[]
 }
 
-type AGSetting = AGExternalDefinition | AGSetStatement
+type AGSetting = AGSemanticDeclaration | AGSetStatement
 type AGSetStatement = { type: "set"; key: string; value: string }
-type AGExternalDefinition = AGExternalProperty | AGExternalMethod
-type AGExternalProperty = { type: "property"; name: string }
-type AGExternalMethod = { type: "method"; name: string }
+type AGSemanticDeclaration = AGSemanticPropertyDeclaration | AGSemanticMethodDeclaration
+type AGSemanticPropertyDeclaration = { type: "property"; name: string }
+type AGSemanticMethodDeclaration = { type: "method"; name: string }
 
 type AGDef = AGUnionDef | AGNodeDef
 
@@ -63,7 +63,7 @@ type LUT<T> = Record<string, T>
 
 type AGGrammar = {
   discriminator: string
-  externals: AGExternalDefinition[]
+  externals: AGSemanticDeclaration[]
   startNode: string
 
   nodesByName: LUT<AGNodeDef>
@@ -119,28 +119,28 @@ const grammar = ohm.grammar(String.raw`
       quotedIdentifier = "\"" identifier "\""
 
       // Keywords
-      keyword = external | property | method | set
-      external = "external" ~wordchar
+      keyword = semantic | property | method | set
+      semantic = "semantic" ~wordchar
       property = "property" ~wordchar
       method   = "method" ~wordchar
       set      = "set" ~wordchar
 
       Setting
         = SetStatement
-        | ExternalDeclaration
+        | SemanticDeclaration
 
       SetStatement
         = set "discriminator" quotedIdentifier
 
-      ExternalDeclaration
-        = ExternalPropertyDeclaration
-        | ExternalMethodDeclaration
+      SemanticDeclaration
+        = SemanticPropertyDeclaration
+        | SemanticMethodDeclaration
 
-      ExternalPropertyDeclaration
-        = external property identifier
+      SemanticPropertyDeclaration
+        = semantic property identifier
 
-      ExternalMethodDeclaration
-        = external method identifier "(" ")"
+      SemanticMethodDeclaration
+        = semantic method identifier "(" ")"
 
       Def
         = AGNodeDef
@@ -180,7 +180,7 @@ const semantics = grammar.createSemantics()
 semantics.addAttribute<
   | AGGrammar
   | AGSetting
-  | AGExternalDefinition
+  | AGSemanticDeclaration
   | AGNodeDef
   | AGUnionDef
   | AGField
@@ -233,11 +233,11 @@ semantics.addAttribute<
     }
   },
 
-  ExternalPropertyDeclaration(_e, _p, identifier): AGExternalProperty {
+  SemanticPropertyDeclaration(_e, _p, identifier): AGSemanticPropertyDeclaration {
     return { type: "property", name: identifier.ast as string }
   },
 
-  ExternalMethodDeclaration(_e, _m, identifier, _lp, _rp): AGExternalMethod {
+  SemanticMethodDeclaration(_e, _m, identifier, _lp, _rp): AGSemanticMethodDeclaration {
     return { type: "method", name: identifier.ast as string }
   },
 
@@ -322,11 +322,11 @@ semantics.addOperation<undefined>("check", {
     {
       const seen = new Set()
       for (const decl of externalDecls.children) {
-        const astNode = decl.ast as AGExternalDefinition
+        const astNode = decl.ast as AGSemanticDeclaration
         if (seen.has(astNode.name)) {
           throw new Error(
             decl.source.getLineAndColumnMessage() +
-              `Duplicate external declaration of '${astNode.name}'`
+              `Duplicate semantic declaration of '${astNode.name}'`
           )
         }
         seen.add(astNode.name)

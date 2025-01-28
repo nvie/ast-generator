@@ -185,9 +185,9 @@ For example:
 ```ts
 // In ast.grammar
 
-external property area
-external method prettify()
-external method check()
+semantic property area
+semantic method prettify()
+semantic method check()
 
 Document {
   version?: number
