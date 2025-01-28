@@ -34,18 +34,18 @@
     "typescript"
   ],
   "devDependencies": {
-    "@eslint/js": "^9.18.0",
+    "@eslint/js": "^9.19.0",
     "@release-it/keep-a-changelog": "^6.0.0",
-    "@types/node": "^22.10.10",
-    "@vitest/coverage-istanbul": "^3.0.2",
-    "eslint": "^9.18.0",
+    "@types/node": "^22.12.0",
+    "@vitest/coverage-istanbul": "^3.0.4",
+    "eslint": "^9.19.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
     "pkg-pr-new": "^0.0.39",
-    "release-it": "^18.1.1",
-    "tsup": "^8.3.5",
-    "typescript-eslint": "^8.21.0",
-    "vitest": "^3.0.2"
+    "release-it": "^18.1.2",
+    "tsup": "^8.3.6",
+    "typescript-eslint": "^8.22.0",
+    "vitest": "^3.0.4"
   },
   "peerDependencies": {
     "commander": "^13",
