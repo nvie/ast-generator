@@ -102,10 +102,17 @@ export function rect(x: number, y: number, width: number, height: number): Rect 
 > [!NOTE]  
 > Note that there is no constructor for a "shape". A shape is either a circle or a rect.
 
-#### Predicates for unions
+#### Predicates for nodes and unions
 
 ```ts
-export function isShape(node: Node): node is Shape {}
+// Predicates for all nodes
+export function isDocument(value: unknown): value is Document {}
+export function isCircle(value: unknown): value is Circle {}
+export function isRect(value: unknown): value is Rect {}
+
+// Predicates for all unions
+export function isNode(value: unknown): value is Node {}
+export function isShape(value: unknown): value is Shape {}
 ```
 
 ## Usage

@@ -556,7 +556,7 @@ function generateTypeCheckCondition(
     conditions.push(
       `${actualValue}.every(item => ${generateTypeCheckCondition(expected.of, "item", discriminator)})`
     )
-  } else if (expected.ref === "NodeUnion") {
+  } else if (expected.ref === "Node" || expected.ref === "NodeUnion") {
     conditions.push(`is${expected.name}(${actualValue})`)
   } else if (isBuiltInType(expected)) {
     conditions.push(
@@ -575,10 +575,6 @@ function generateTypeCheckCondition(
           }
         })
         .join(" || ")})`
-    )
-  } else {
-    conditions.push(
-      `${actualValue}.${discriminator} === ${JSON.stringify(expected.name)}`
     )
   }
 
@@ -842,6 +838,8 @@ function generateCode(grammar: AGGrammar): string {
       throw new Error(errmsg);
     }
 
+    const _nodes = new WeakSet()
+
     function asNode<N extends Node>(node: Omit<N, keyof Semantics | "forEach">): N {
       ${
         grammar.externals.filter((ext) => ext.type === "property").length > 0
@@ -881,6 +879,7 @@ function generateCode(grammar: AGGrammar): string {
           )
           .join("\n")}
       }) as N
+      _nodes.add(self)
       return self
     }
 
@@ -894,16 +893,14 @@ function generateCode(grammar: AGGrammar): string {
     )
     const conditions = subNodes
       .map(
-        (ref) => `node.${grammar.discriminator} === ${JSON.stringify(getBareRef(ref))}`
+        (ref) => `value.${grammar.discriminator} === ${JSON.stringify(getBareRef(ref))}`
       )
-      .concat(subUnions.map((ref) => `is${getBareRef(ref)}(node)`))
+      .concat(subUnions.map((ref) => `is${getBareRef(ref)}(value)`))
     output.push(`
-          export function is${union.name}(node: Node): node is ${union.name} {
-            return (
-              ${conditions.join(" || ")}
-            )
-          }
-        `)
+      export function is${union.name}(value: unknown): value is ${union.name} {
+        return isNode(value) && (${conditions.join(" || ")})
+      }
+    `)
   }
 
   for (const union of grammar.unions) {
@@ -952,12 +949,8 @@ function generateCode(grammar: AGGrammar): string {
       );
     }
 
-    export function isNode(node: Node): node is Node {
-      return (
-        ${grammar.nodes
-          .map((node) => `node.${grammar.discriminator} === ${JSON.stringify(node.name)}`)
-          .join(" || ")}
-      )
+    export function isNode(value: unknown): value is Node {
+      return _nodes.has(value as Node)
     }
   `)
 
@@ -970,6 +963,14 @@ function generateCode(grammar: AGGrammar): string {
             .join("\n")}
           range: Range;
           forEach(callback: (child: ChildrenOf<${node.name}>) => void): void;
+      }
+    `)
+
+    output.push(`
+      export function is${node.name}(value: unknown): value is ${node.name} {
+        return isNode(value) && (value.${grammar.discriminator} === ${JSON.stringify(
+          node.name
+        )})
       }
     `)
   }

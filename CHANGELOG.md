@@ -1,9 +1,13 @@
 ## [Unreleased]
 
-- Add support for addition of externally defined semantic properties/methods
+- Every Node now has a generated `.forEach()` method, able to iterate over all of its
+  children in a type-safe manner.
+- Add support for addition of externally defined semantic properties/methods.
 - Add support for changing discriminator field, using `set discriminator "_kind"` in the
-  grammar
-- Change default discriminator field to `type`
+  grammar.
+- Change default discriminator field to `type`.
+- **Breaking** No longer generates `visit()` method. You can now use `.forEach()`
+  (available on every Node) or `defineMethod()` to implement your own visitor.
 
 ## [0.3.0] - 2025-01-20
 
