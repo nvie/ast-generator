@@ -1,5 +1,10 @@
 ## [Unreleased]
 
+- Add support for addition of externally defined semantic properties/methods
+- Add support for changing discriminator field, using `set discriminator "_kind"` in the
+  grammar
+- Change default discriminator field to `type`
+
 ## [0.3.0] - 2025-01-20
 
 - New definition language
@@ -25,8 +30,8 @@
 
 ## [0.2.0] - 2024-02-28
 
-- Made the first-defined node the start node for the grammar. It no longer
-  has to be named "Document" per se.
+- Made the first-defined node the start node for the grammar. It no longer has to be named
+  "Document" per se.
 - Made `_kind` and `range` fields non-enumerable.
 
 ## [0.1.0]

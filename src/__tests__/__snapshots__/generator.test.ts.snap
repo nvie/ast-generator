@@ -2,6 +2,29 @@
 
 exports[`parsing grammars > parses a grammar 1`] = `
 {
+  "discriminator": "type",
+  "externals": [
+    {
+      "name": "myProp1",
+      "type": "property",
+    },
+    {
+      "name": "myProp2",
+      "type": "property",
+    },
+    {
+      "name": "doSomething",
+      "type": "method",
+    },
+    {
+      "name": "doSomethingElse",
+      "type": "method",
+    },
+    {
+      "name": "myProp3",
+      "type": "property",
+    },
+  ],
   "nodes": [
     {
       "fields": [

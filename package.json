@@ -1,6 +1,6 @@
 {
   "name": "ast-generator",
-  "version": "0.3.0",
+  "version": "0.4.0-rc1",
   "description": "Helper to generate a TypeScript or JavaScript module for an arbitrary AST definition from a specification.",
   "type": "module",
   "bin": {
@@ -36,7 +36,7 @@
   "devDependencies": {
     "@eslint/js": "^9.18.0",
     "@release-it/keep-a-changelog": "^6.0.0",
-    "@types/node": "^22.10.7",
+    "@types/node": "^22.10.10",
     "@vitest/coverage-istanbul": "^3.0.2",
     "eslint": "^9.18.0",
     "eslint-plugin-import": "^2.31.0",
