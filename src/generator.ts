@@ -1014,23 +1014,7 @@ function generateCode(grammar: AGGrammar): string {
             `)
   }
 
-  // Generate a general purpose AST traversal/visit function
-  output.push("interface Visitor<C> {")
-  for (const node of grammar.nodes) {
-    output.push(`  ${node.name}?(node: ${node.name}, context: C): void;`)
-  }
-  output.push("}")
-
-  // XXX Do we still need visit? Can we rename it into a more useful built-in
-  // semantic method, so we no longer need to use the "afterEach" hack?
   output.push(`
-    export function visit(node: Node, visitor: Visitor<undefined>): void;
-    export function visit<C>(node: Node, visitor: Visitor<C>, context: C): void;
-    export function visit<C>(node: Node, visitor: Visitor<C | undefined>, context?: C): void {
-      visitor[node.${grammar.discriminator}]?.(node as any, context);
-      forEach(node, (child) => visit(child, visitor, context));
-    }
-
     export function forEach<N extends Node>(
       node: N,
       callback: (node: ChildrenOf<N>) => void,
