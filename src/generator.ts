@@ -592,31 +592,6 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
   onlyOnce.add(generateCommonSemanticHelpers)
 
   return `
-    type SemanticReturnType<M extends ${grammar.externals
-      .map((ext) => JSON.stringify(ext.name))
-      .join(" | ")}> =
-      M extends keyof Semantics ?
-        ( Semantics[M] extends (...args: any[]) => infer R
-          ? R
-          : never )
-      : never;
-
-    type SemanticContextType<M extends ${grammar.externals
-      .map((ext) => JSON.stringify(ext.name))
-      .join(" | ")}> =
-      M extends keyof Semantics ?
-        ( Semantics[M] extends (...args: infer A) => any
-          ? A
-          : never )
-      : never;
-
-    type SemanticPropertyType<P extends ${grammar.externals
-      .map((ext) => JSON.stringify(ext.name))
-      .join(" | ")}> =
-      P extends keyof Semantics ?
-        ( Semantics[P] extends infer UP ? UP : never )
-      : never;
-
     interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
       afterEach?(node: Node, context: C): void;
       Node?(node: Node, context: C): T;${
@@ -643,6 +618,49 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
   `
 }
 
+function generateSemanticMethodHelpers(grammar: AGGrammar): string {
+  if (onlyOnce.has(generateSemanticMethodHelpers)) return ""
+  onlyOnce.add(generateSemanticMethodHelpers)
+
+  return `
+    ${generateCommonSemanticHelpers(grammar)}
+
+    type SemanticReturnType<M extends ${grammar.externals
+      .map((ext) => JSON.stringify(ext.name))
+      .join(" | ")}> =
+      M extends keyof Semantics ?
+        ( Semantics[M] extends (...args: any[]) => infer R
+          ? R
+          : never )
+      : never;
+
+    type SemanticContextType<M extends ${grammar.externals
+      .map((ext) => JSON.stringify(ext.name))
+      .join(" | ")}> =
+      M extends keyof Semantics ?
+        ( Semantics[M] extends (...args: infer A) => any
+          ? A
+          : never )
+      : never;
+  `
+}
+
+function generateSemanticPropertyHelpers(grammar: AGGrammar): string {
+  if (onlyOnce.has(generateSemanticPropertyHelpers)) return ""
+  onlyOnce.add(generateSemanticPropertyHelpers)
+
+  return `
+    ${generateCommonSemanticHelpers(grammar)}
+
+    type SemanticPropertyType<P extends ${grammar.externals
+      .map((ext) => JSON.stringify(ext.name))
+      .join(" | ")}> =
+      P extends keyof Semantics ?
+        ( Semantics[P] extends infer UP ? UP : never )
+      : never;
+  `
+}
+
 function generateMethodHelpers(grammar: AGGrammar): string {
   const methods = grammar.externals.filter((ext) => ext.type === "method")
   if (methods.length === 0) {
@@ -653,7 +671,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
   // TODO Would be nice to also allow defineMethod('name', (node) => ...) directly
   // TODO This API would not make sense for defineMethodExhaustively, though
   return `
-    ${generateCommonSemanticHelpers(grammar)}
+    ${generateSemanticMethodHelpers(grammar)}
 
     const mStub = (name: string) =>
       stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
@@ -736,7 +754,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
   // TODO Would be nice to also allow defineProperty('name', (node) => ...) directly
   // TODO This API would not make sense for definePropertyExhaustively, though
   return `
-    ${generateCommonSemanticHelpers(grammar)}
+    ${generateSemanticPropertyHelpers(grammar)}
 
     const pStub = (name: string) =>
       stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
