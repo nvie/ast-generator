@@ -770,16 +770,12 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
         .join("\n")}
     }
 
-    const memoedSemanticProperties = {
-      ${props.map((ext) => `${JSON.stringify(ext.name)}: new WeakMap(),`).join("\n")}
-    }
-
     export function defineProperty<
       P extends ${union},
       R extends SemanticPropertyType<P>
     >(
       name: P,
-      dispatch: PartialDispatch<R, undefined> | DispatchFn<R, undefined>,
+      dispatch: PartialDispatch<R, undefined> | DispatchFn<R, []>,
     ): void {
       if (!semanticPropertyFactories.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'semantic property \${name}' in your grammar?\`)
@@ -795,13 +791,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       }
 
       // TODO We can probably DRY a bunch of stuff up in here
-      semanticPropertyFactories[name] = (node: Node) => {
-        const cache = memoedSemanticProperties[name]
-        if (cache.has(node)) return cache.get(node)
-        const rv = dispatchProperty(name, node, dispatch)
-        cache.set(node, rv)
-        return rv
-      }
+      semanticPropertyFactories[name] = (node: Node) => dispatchProperty(name, node, dispatch);
     }
 
     export function definePropertyExhaustively<
@@ -817,7 +807,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     function dispatchProperty<T, N extends Node>(
       prop: ${union},
       node: N,
-      dispatch: PartialDispatch<T, undefined> | DispatchFn<T, undefined>,
+      dispatch: PartialDispatch<T, undefined> | DispatchFn<T, []>,
     ): T {
       const handler = typeof dispatch === 'function' ? dispatch : dispatch[node.${grammar.discriminator}] ?? dispatch.Node;
       if (handler === undefined) {
@@ -884,6 +874,12 @@ function generateCode(grammar: AGGrammar): string {
     }
 
     function asNode<N extends Node>(node: Omit<N, keyof Semantics | "forEach">): N {
+      ${
+        grammar.externals.filter((ext) => ext.type === "property").length > 0
+          ? "const cache = new Map()"
+          : ""
+      }
+
       const self = Object.defineProperties(node, {
         range: { enumerable: false },
         forEach: {
@@ -895,7 +891,14 @@ function generateCode(grammar: AGGrammar): string {
           .filter((ext) => ext.type === "property")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: { get: () => semanticPropertyFactories[${JSON.stringify(ext.name)}](self, undefined), enumerable: false },`
+              `${JSON.stringify(ext.name)}: {
+                get() {
+                  if (cache.has(${JSON.stringify(ext.name)})) return cache.get(${JSON.stringify(ext.name)})
+                  const value = semanticPropertyFactories[${JSON.stringify(ext.name)}](self, undefined)
+                  cache.set(${JSON.stringify(ext.name)}, value)
+                  return value
+                },
+                enumerable: false },`
           )
           .join("\n")}
         ${grammar.externals
@@ -903,9 +906,7 @@ function generateCode(grammar: AGGrammar): string {
           .map(
             (ext) =>
               `${JSON.stringify(ext.name)}: {
-                value<C extends unknown = unknown>(context: C) {
-                  return semanticMethods[${JSON.stringify(ext.name)}](self, context)
-                },
+                value(context: unknown) { return semanticMethods[${JSON.stringify(ext.name)}](self, context) },
                 enumerable: false,
               },`
           )
