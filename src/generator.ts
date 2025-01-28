@@ -841,7 +841,7 @@ function generateCode(grammar: AGGrammar): string {
      */
     export interface Semantics { }
 
-    type BuiltinNodeProps = "forEach"
+    type BuiltinNodeProps = "children" | "descendants"
 
     const DEBUG = process.env.NODE_ENV !== 'production';
 
@@ -852,12 +852,8 @@ function generateCode(grammar: AGGrammar): string {
 
     const _nodes = new WeakSet()
 
-    function method<T, A extends any[]>(impl: (...args: A) => T) {
-      return {
-        enumerable: false,
-        value: impl,
-      };
-    }
+    function method<T, A extends any[]>(impl: (...args: A) => T) { return { enumerable: false, value: impl } }
+    function getter<T>(impl: () => T) { return { enumerable: false, get: impl } }
 
     function createNode<N extends Node>(base: Omit<N, keyof Semantics | BuiltinNodeProps>): N {
       const node = base as N;
@@ -867,15 +863,12 @@ function generateCode(grammar: AGGrammar): string {
           ? ""
           : `
               const pcache = new Map()
-              const semanticProp = (key: SemanticProperty) => ({
-                enumerable: false,
-                get() {
-                  if (pcache.has(key)) return pcache.get(key);
-                  const value = semantics[key](node, undefined);
-                  pcache.set(key, value);
-                  return value;
-                },
-              });
+              const semanticProp = (key: SemanticProperty) => getter(() => {
+                if (pcache.has(key)) return pcache.get(key);
+                const value = semantics[key](node, undefined);
+                pcache.set(key, value);
+                return value;
+              })
             `
       }
 
@@ -889,15 +882,8 @@ function generateCode(grammar: AGGrammar): string {
 
       Object.defineProperties(base, {
         range: { enumerable: false },
-        forEach: method((callback: (child: ChildrenOf<N>) => void) => { g_forEach(node, callback) }),
-
-        ${
-          // walk: {
-          //   enumerable: false,
-          //   value: <T, C>(dispatcher: PartialDispatcher<T, C>) => { walk(node, callback) },
-          // },
-          ""
-        }
+        children: getter(() => iterChildren(node)),
+        descendants: getter(() => iterDescendants(node)),
 
         ${grammar.externals
           .filter((ext) => ext.type === "property")
@@ -967,6 +953,15 @@ function generateCode(grammar: AGGrammar): string {
         .join("\n")}
     }[N[${JSON.stringify(grammar.discriminator)}]];
 
+    // TODO Define this more elegantly later
+    export type DescendantsOf<N extends Node> =
+      | ChildrenOf<N>
+      | ChildrenOf<ChildrenOf<N>>
+      | ChildrenOf<ChildrenOf<ChildrenOf<N>>>
+      | ChildrenOf<ChildrenOf<ChildrenOf<ChildrenOf<N>>>>
+      | ChildrenOf<ChildrenOf<ChildrenOf<ChildrenOf<ChildrenOf<N>>>>>
+      | ChildrenOf<ChildrenOf<ChildrenOf<ChildrenOf<ChildrenOf<ChildrenOf<N>>>>>>
+
     export type Range = [number, number]
 
     export function isRange(thing: unknown): thing is Range {
@@ -998,7 +993,8 @@ function generateCode(grammar: AGGrammar): string {
             .map((field) => `${field.name}: ${getTypeScriptType(field.pattern)}`)
             .join("\n")}
           range: Range;
-          forEach(callback: (child: ChildrenOf<${node.name}>) => void): void;
+          children: IterableIterator<ChildrenOf<${node.name}>>;
+          descendants: IterableIterator<DescendantsOf<${node.name}>>;
       }
     `)
 
@@ -1052,21 +1048,16 @@ function generateCode(grammar: AGGrammar): string {
   }
 
   output.push(`
-    function g_forEach<N extends Node>(
-      node: N,
-      callback: (node: ChildrenOf<N>) => void,
-    ): void {
+    function* iterChildren<N extends Node>(node: N): IterableIterator<ChildrenOf<N>> {
       switch (node.${grammar.discriminator}) {
   `)
 
-  const nodeNamesWithoutChildren = new Set<string>()
   for (const node of grammar.nodes) {
     const fields = node.fields.filter(
       (field) => !isBuiltInType(getNodeRef(field.pattern))
     )
 
     if (fields.length === 0) {
-      nodeNamesWithoutChildren.add(node.name)
       continue
     }
 
@@ -1076,12 +1067,12 @@ function generateCode(grammar: AGGrammar): string {
       switch (field.pattern.ref) {
         case "Node":
         case "NodeUnion":
-          output.push(`  callback(node.${field.name} as ChildrenOf<N>)`)
+          output.push(`  yield node.${field.name} as ChildrenOf<N>`)
           break
 
         case "List":
           output.push(`  for (const child of node.${field.name}) {`)
-          output.push("    callback(child as ChildrenOf<N>)")
+          output.push("    yield child as ChildrenOf<N>")
           output.push("  }")
           break
 
@@ -1095,45 +1086,19 @@ function generateCode(grammar: AGGrammar): string {
     output.push("  break;")
   }
 
-  output.push("")
-  for (const nodeName of nodeNamesWithoutChildren) {
-    output.push(`case ${JSON.stringify(nodeName)}:`)
-  }
-  if (nodeNamesWithoutChildren.size > 0) {
-    output.push("  /* These node types don't have any child nodes */")
-  }
-  output.push("  break;")
-
   output.push(`
       }
     }
   `)
 
-  // output.push(`
-  //   export function walk<C>(
-  //     node: Node,
-  //     dispatcher: PartialDispatcher<T, C>,
-  //     context: C
-  //   ): void {
-  //     ...
-  // `)
-  //
-  // output.push(`
-  //   }
-  // `)
-
-  // output.push(`
-  //   export function walk<C>(
-  //     node: Node,
-  //     dispatcher: PartialDispatcher<T, C>,
-  //     context: C
-  //   ): void {
-  //     ...
-  // `)
-  //
-  // output.push(`
-  //   }
-  // `)
+  output.push(`
+    function* iterDescendants<N extends Node>(node: N): IterableIterator<DescendantsOf<N>> {
+      for (const child of iterChildren(node)) {
+        yield child
+        yield *iterDescendants(child)
+      }
+    }
+  `)
 
   return output.join("\n")
 }
