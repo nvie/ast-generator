@@ -1044,8 +1044,8 @@ function generateCode(grammar: AGGrammar): string {
 
         case "List":
           output.push(`  for (const child of node.${field.name}) {`)
-          output.push(`    callback(child as ChildrenOf<N>)`)
-          output.push(`  }`)
+          output.push("    callback(child as ChildrenOf<N>)")
+          output.push("  }")
           break
 
         case "Optional":
