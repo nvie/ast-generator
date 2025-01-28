@@ -588,15 +588,50 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
   onlyOnce.add(generateCommonSemanticHelpers)
 
   return `
-    export interface ExhaustiveDispatch<T, C> {
+    export type SemanticProperty = ${
+      grammar.externals
+        .filter((ext) => ext.type === "property")
+        .map((ext) => JSON.stringify(ext.name))
+        .join(" | ") || "never"
+    }
+    export type SemanticMethod = ${
+      grammar.externals
+        .filter((ext) => ext.type === "method")
+        .map((ext) => JSON.stringify(ext.name))
+        .join(" | ") || "never"
+    }
+
+    type UserDefinedReturnType<K extends SemanticProperty | SemanticMethod> =
+      K extends keyof Semantics
+        ? (
+            Semantics[K] extends (...args: any[]) => infer R
+            ? R
+            : (
+                Semantics[K] extends infer UP
+                  ? UP
+                  : never
+              )
+          )
+        : never
+
+    type UserDefinedContext<K extends SemanticProperty | SemanticMethod> =
+      K extends keyof Semantics
+        ? (
+            Semantics[K] extends (context: infer C, ...rest: any[]) => any
+              ? C
+              : undefined
+          )
+        : never
+
+    export interface ExhaustiveDispatchMap<T, C> {
       ${grammar.nodes
         .map((node) => `  ${node.name}(node: ${node.name}, context: C): T;`)
         .join("\n")}
     }
 
-    export type DispatchFn<T, C> = (node: Node, ...args: C extends any[] ? C : never) => T;
+    type DispatchFn<T, C> = (node: Node, context: C) => T;
 
-    export interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
+    interface PartialDispatchMap<T, C> extends Partial<ExhaustiveDispatchMap<T, C>> {
       beforeEach?(node: Node, context: C): void;
       afterEach?(node: Node, context: C): void;
 
@@ -608,12 +643,68 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
       }
     }
 
+    export type PartialDispatcher<T, C> = PartialDispatchMap<T, C> | DispatchFn<T, C>;
+
     const NOT_IMPLEMENTED = Symbol();
 
-    const stub = (msg: string) => {
-      return Object.defineProperty((_node: Node, _context: any): any => {
-        throw new Error(msg)
-      }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+    ${
+      grammar.externals.length > 0
+        ? `
+          const stub = (msg: string) => {
+            return Object.defineProperty((_node: Node, _context: any): any => {
+              throw new Error(msg)
+            }, NOT_IMPLEMENTED, { value: NOT_IMPLEMENTED, enumerable: false })
+          }
+      `
+        : ""
+    }
+    ${
+      grammar.externals.some((ext) => ext.type === "property")
+        ? `
+            const pStub = (name: string) =>
+              stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
+          `
+        : ""
+    }
+    ${
+      grammar.externals.some((ext) => ext.type === "method")
+        ? `
+            const mStub = (name: string) =>
+              stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
+          `
+        : ""
+    }
+
+    const semantics = {
+      ${grammar.externals
+        .map(
+          (ext) =>
+            `${JSON.stringify(ext.name)}: ${ext.type === "property" ? "pStub" : "mStub"}(${JSON.stringify(ext.name)}),`
+        )
+        .join("\n")}
+    }
+
+    function dispatch<
+      K extends SemanticProperty | SemanticMethod,
+      N extends Node,
+      R = UserDefinedReturnType<K>,
+      C = UserDefinedContext<K>
+    >(
+      name: K,
+      node: N,
+      dispatcher: PartialDispatcher<R, C>,
+      context: C,
+    ): R {
+      const handler = typeof dispatcher === 'function' ? dispatcher : dispatcher[node.${grammar.discriminator}] ?? dispatcher.Node;
+
+      if (handler === undefined) {
+        throw new Error(\`Semantic '\${name}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
+      }
+
+      if (typeof dispatcher !== 'function') dispatcher.beforeEach?.(node, context)
+      const rv = handler(node as never, context)
+      if (typeof dispatcher !== 'function') dispatcher.afterEach?.(node, context)
+      return rv
     }
   `
 }
@@ -624,86 +715,39 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     return ""
   }
 
-  // TODO Would be nice to also allow defineMethod('name', (node) => ...) directly
-  // TODO This API would not make sense for defineMethodExhaustively, though
   return `
     ${generateCommonSemanticHelpers(grammar)}
 
-    export type SemanticMethod = ${methods.map((ext) => JSON.stringify(ext.name)).join(" | ")};
-
-    type SemanticReturnType<M extends SemanticMethod> =
-      M extends keyof Semantics ?
-        ( Semantics[M] extends (...args: any[]) => infer R
-          ? R
-          : never )
-      : never;
-
-    type SemanticContextType<M extends SemanticMethod> =
-      M extends keyof Semantics ?
-        ( Semantics[M] extends (...args: infer A) => any
-          ? A
-          : never )
-      : never;
-
-    const mStub = (name: string) =>
-      stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
-
-    const semanticMethods = {
-      ${methods
-        .map((ext) => `${JSON.stringify(ext.name)}: mStub(${JSON.stringify(ext.name)}),`)
-        .join("\n")}
-    }
-
     export function defineMethod<
       M extends SemanticMethod,
-      R = SemanticReturnType<M>,
-      C = SemanticContextType<M>,
-    >(name: M, dispatch: PartialDispatch<R, C> | DispatchFn<R, C>): void {
-      if (!semanticMethods.hasOwnProperty(name)) {
+      R = UserDefinedReturnType<M>,
+      C = UserDefinedContext<M>,
+    >(name: M, dispatcher: PartialDispatcher<R, C>): void {
+      if (!semantics.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'semantic method \${name}()' in your grammar?\`)
         Error.captureStackTrace(err, defineMethod)
         throw err
       }
 
-      if (!(NOT_IMPLEMENTED in semanticMethods[name])) {
+      if (!(NOT_IMPLEMENTED in semantics[name])) {
         const err = new Error(\`Semantic method '\${name}' is already defined\`)
         Error.captureStackTrace(err, defineMethod)
         throw err
       }
 
-      semanticMethods[name] =
-        (node: Node, context: C) => dispatchMethod(name, node, dispatch, context)
+      semantics[name] =
+        ((node: Node, context: C) => dispatch(name, node, dispatcher, context))
     }
 
     export function defineMethodExhaustively<
       M extends SemanticMethod,
-      R = SemanticReturnType<M>,
-      C = SemanticContextType<M>,
+      R = UserDefinedReturnType<M>,
+      C = UserDefinedContext<M>,
     >(
       name: M,
-      dispatch: ExhaustiveDispatch<R, C>,
+      dispatcher: ExhaustiveDispatchMap<R, C>,
     ): void {
-      return defineMethod(name, dispatch);
-    }
-
-    function dispatchMethod<T, M extends SemanticMethod, N extends Node, C = SemanticContextType<M>>(
-      method: M,
-      node: N,
-      dispatch: PartialDispatch<T, C> | DispatchFn<T, C>,
-      context: C,
-    ): T {
-      const handler = typeof dispatch === 'function' ? dispatch : dispatch[node.${grammar.discriminator}] ?? dispatch.Node;
-
-      if (handler === undefined) {
-        const err = new Error(\`Semantic method '\${method}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
-        Error.captureStackTrace(err, dispatchMethod)
-        throw err
-      }
-
-      if (typeof dispatch !== 'function') dispatch.beforeEach?.(node, context)
-      const rv = handler(node as never, context)
-      if (typeof dispatch !== 'function') dispatch.afterEach?.(node, context)
-      return rv
+      return defineMethod(name, dispatcher);
     }
   `
 }
@@ -714,73 +758,39 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     return ""
   }
 
-  // TODO Would be nice to also allow defineProperty('name', (node) => ...) directly
-  // TODO This API would not make sense for definePropertyExhaustively, though
   return `
     ${generateCommonSemanticHelpers(grammar)}
 
-    export type SemanticProperty = ${props.map((ext) => JSON.stringify(ext.name)).join(" | ")}
-
-    type SemanticPropertyType<P extends SemanticProperty> =
-      P extends keyof Semantics ?
-        ( Semantics[P] extends infer UP ? UP : never )
-      : never;
-
-    const pStub = (name: string) =>
-      stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
-
-    const semanticPropertyFactories = {
-      ${props
-        .map((ext) => `${JSON.stringify(ext.name)}: pStub(${JSON.stringify(ext.name)}),`)
-        .join("\n")}
-    }
-
     export function defineProperty<
       P extends SemanticProperty,
-      R extends SemanticPropertyType<P>
+      R = UserDefinedReturnType<P>
     >(
       name: P,
-      dispatch: PartialDispatch<R, undefined> | DispatchFn<R, []>,
+      dispatcher: PartialDispatcher<R, undefined>,
     ): void {
-      if (!semanticPropertyFactories.hasOwnProperty(name)) {
+      if (!semantics.hasOwnProperty(name)) {
         const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'semantic property \${name}' in your grammar?\`)
         Error.captureStackTrace(err, defineProperty)
         throw err
       }
 
-      // Ensure each semantic property will be defined at most once
-      if (!(NOT_IMPLEMENTED in semanticPropertyFactories[name])) {
+      if (!(NOT_IMPLEMENTED in semantics[name])) {
         const err = new Error(\`Semantic property '\${name}' is already defined\`)
         Error.captureStackTrace(err, defineProperty)
         throw err
       }
 
-      // TODO We can probably DRY a bunch of stuff up in here
-      semanticPropertyFactories[name] = (node: Node) => dispatchProperty(name, node, dispatch);
+      semantics[name] = (node: Node) => dispatch(name, node, dispatcher, undefined);
     }
 
     export function definePropertyExhaustively<
       P extends SemanticProperty,
-      R extends SemanticPropertyType<P>
+      R extends UserDefinedReturnType<P>
     >(
       name: P,
-      dispatch: ExhaustiveDispatch<R, undefined>,
+      dispatcher: ExhaustiveDispatchMap<R, undefined>,
     ): void {
-      return defineProperty(name, dispatch);
-    }
-
-    function dispatchProperty<T, N extends Node>(
-      prop: SemanticProperty,
-      node: N,
-      dispatch: PartialDispatch<T, undefined> | DispatchFn<T, []>,
-    ): T {
-      const handler = typeof dispatch === 'function' ? dispatch : dispatch[node.${grammar.discriminator}] ?? dispatch.Node;
-      if (handler === undefined) {
-        const err = new Error(\`Semantic property '\${prop}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
-        Error.captureStackTrace(err, dispatchProperty)
-        throw err
-      }
-      return handler(node as never, undefined)
+      return defineProperty(name, dispatcher);
     }
   `
 }
@@ -831,6 +841,8 @@ function generateCode(grammar: AGGrammar): string {
      */
     export interface Semantics { }
 
+    type BuiltinNodeProps = "forEach"
+
     const DEBUG = process.env.NODE_ENV !== 'production';
 
     function assert(condition: boolean, errmsg: string): asserts condition {
@@ -840,47 +852,71 @@ function generateCode(grammar: AGGrammar): string {
 
     const _nodes = new WeakSet()
 
-    function asNode<N extends Node>(node: Omit<N, keyof Semantics | "forEach">): N {
+    function method<T, A extends any[]>(impl: (...args: A) => T) {
+      return {
+        enumerable: false,
+        value: impl,
+      };
+    }
+
+    function createNode<N extends Node>(base: Omit<N, keyof Semantics | BuiltinNodeProps>): N {
+      const node = base as N;
+
       ${
-        grammar.externals.filter((ext) => ext.type === "property").length > 0
-          ? "const cache = new Map()"
-          : ""
+        !grammar.externals.some((ext) => ext.type === "property")
+          ? ""
+          : `
+              const pcache = new Map()
+              const semanticProp = (key: SemanticProperty) => ({
+                enumerable: false,
+                get() {
+                  if (pcache.has(key)) return pcache.get(key);
+                  const value = semantics[key](node, undefined);
+                  pcache.set(key, value);
+                  return value;
+                },
+              });
+            `
       }
 
-      const self = Object.defineProperties(node, {
+      ${
+        !grammar.externals.some((ext) => ext.type === "method")
+          ? ""
+          : `
+              const semanticMeth = (key: SemanticMethod) => method((context) => semantics[key](node, context))
+            `
+      }
+
+      Object.defineProperties(base, {
         range: { enumerable: false },
-        forEach: {
-          enumerable: false,
-          value: (callback: (child: ChildrenOf<N>) => void) => { forEach(self, callback) },
-        },
+        forEach: method((callback: (child: ChildrenOf<N>) => void) => { g_forEach(node, callback) }),
+
+        ${
+          // walk: {
+          //   enumerable: false,
+          //   value: <T, C>(dispatcher: PartialDispatcher<T, C>) => { walk(node, callback) },
+          // },
+          ""
+        }
 
         ${grammar.externals
           .filter((ext) => ext.type === "property")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: {
-                get() {
-                  if (cache.has(${JSON.stringify(ext.name)})) return cache.get(${JSON.stringify(ext.name)})
-                  const value = semanticPropertyFactories[${JSON.stringify(ext.name)}](self, undefined)
-                  cache.set(${JSON.stringify(ext.name)}, value)
-                  return value
-                },
-                enumerable: false },`
+              `${JSON.stringify(ext.name)}: semanticProp(${JSON.stringify(ext.name)}),`
           )
           .join("\n")}
         ${grammar.externals
           .filter((ext) => ext.type === "method")
           .map(
             (ext) =>
-              `${JSON.stringify(ext.name)}: {
-                value(context: unknown) { return semanticMethods[${JSON.stringify(ext.name)}](self, context) },
-                enumerable: false,
-              },`
+              `${JSON.stringify(ext.name)}: semanticMeth(${JSON.stringify(ext.name)}),`
           )
           .join("\n")}
-      }) as N
-      _nodes.add(self)
-      return self
+      })
+
+      _nodes.add(node)
+      return node
     }
 
     `,
@@ -1007,7 +1043,7 @@ function generateCode(grammar: AGGrammar): string {
                     ? `DEBUG && (() => { ${runtimeTypeChecks.join("\n")} })()`
                     : ""
                 }
-                return asNode({
+                return createNode({
                     ${grammar.discriminator}: ${JSON.stringify(node.name)},
                     ${[...node.fields.map((field) => field.name), "range"].join(", ")}
                 });
@@ -1016,7 +1052,7 @@ function generateCode(grammar: AGGrammar): string {
   }
 
   output.push(`
-    export function forEach<N extends Node>(
+    function g_forEach<N extends Node>(
       node: N,
       callback: (node: ChildrenOf<N>) => void,
     ): void {
@@ -1072,6 +1108,32 @@ function generateCode(grammar: AGGrammar): string {
       }
     }
   `)
+
+  // output.push(`
+  //   export function walk<C>(
+  //     node: Node,
+  //     dispatcher: PartialDispatcher<T, C>,
+  //     context: C
+  //   ): void {
+  //     ...
+  // `)
+  //
+  // output.push(`
+  //   }
+  // `)
+
+  // output.push(`
+  //   export function walk<C>(
+  //     node: Node,
+  //     dispatcher: PartialDispatcher<T, C>,
+  //     context: C
+  //   ): void {
+  //     ...
+  // `)
+  //
+  // output.push(`
+  //   }
+  // `)
 
   return output.join("\n")
 }
