@@ -622,60 +622,32 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
   `
 }
 
-function generateSemanticMethodHelpers(grammar: AGGrammar): string {
-  if (onlyOnce.has(generateSemanticMethodHelpers)) return ""
-  onlyOnce.add(generateSemanticMethodHelpers)
-
-  return `
-    ${generateCommonSemanticHelpers(grammar)}
-
-    type SemanticReturnType<M extends ${grammar.externals
-      .map((ext) => JSON.stringify(ext.name))
-      .join(" | ")}> =
-      M extends keyof Semantics ?
-        ( Semantics[M] extends (...args: any[]) => infer R
-          ? R
-          : never )
-      : never;
-
-    type SemanticContextType<M extends ${grammar.externals
-      .map((ext) => JSON.stringify(ext.name))
-      .join(" | ")}> =
-      M extends keyof Semantics ?
-        ( Semantics[M] extends (...args: infer A) => any
-          ? A
-          : never )
-      : never;
-  `
-}
-
-function generateSemanticPropertyHelpers(grammar: AGGrammar): string {
-  if (onlyOnce.has(generateSemanticPropertyHelpers)) return ""
-  onlyOnce.add(generateSemanticPropertyHelpers)
-
-  return `
-    ${generateCommonSemanticHelpers(grammar)}
-
-    type SemanticPropertyType<P extends ${grammar.externals
-      .map((ext) => JSON.stringify(ext.name))
-      .join(" | ")}> =
-      P extends keyof Semantics ?
-        ( Semantics[P] extends infer UP ? UP : never )
-      : never;
-  `
-}
-
 function generateMethodHelpers(grammar: AGGrammar): string {
   const methods = grammar.externals.filter((ext) => ext.type === "method")
   if (methods.length === 0) {
     return ""
   }
 
-  const union = methods.map((ext) => JSON.stringify(ext.name)).join(" | ")
   // TODO Would be nice to also allow defineMethod('name', (node) => ...) directly
   // TODO This API would not make sense for defineMethodExhaustively, though
   return `
-    ${generateSemanticMethodHelpers(grammar)}
+    ${generateCommonSemanticHelpers(grammar)}
+
+    export type SemanticMethod = ${methods.map((ext) => JSON.stringify(ext.name)).join(" | ")};
+
+    type SemanticReturnType<M extends SemanticMethod> =
+      M extends keyof Semantics ?
+        ( Semantics[M] extends (...args: any[]) => infer R
+          ? R
+          : never )
+      : never;
+
+    type SemanticContextType<M extends SemanticMethod> =
+      M extends keyof Semantics ?
+        ( Semantics[M] extends (...args: infer A) => any
+          ? A
+          : never )
+      : never;
 
     const mStub = (name: string) =>
       stub(\`Semantic method '\${name}' is not defined yet. Use 'defineMethod(\${JSON.stringify(name)}, { ... })' before calling '.\${name}()' on a node.\`)
@@ -687,7 +659,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     }
 
     export function defineMethod<
-      M extends ${union},
+      M extends SemanticMethod,
       R = SemanticReturnType<M>,
       C = SemanticContextType<M>,
     >(name: M, dispatch: PartialDispatch<R, C> | DispatchFn<R, C>): void {
@@ -708,7 +680,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
     }
 
     export function defineMethodExhaustively<
-      M extends ${union},
+      M extends SemanticMethod,
       R = SemanticReturnType<M>,
       C = SemanticContextType<M>,
     >(
@@ -718,7 +690,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       return defineMethod(name, dispatch);
     }
 
-    function dispatchMethod<T, M extends ${union}, N extends Node, C = SemanticContextType<M>>(
+    function dispatchMethod<T, M extends SemanticMethod, N extends Node, C = SemanticContextType<M>>(
       method: M,
       node: N,
       dispatch: PartialDispatch<T, C> | DispatchFn<T, C>,
@@ -735,16 +707,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       if (typeof dispatch !== 'function') dispatch.beforeEach?.(node, context)
       const rv = handler(node as never, context)
       if (typeof dispatch !== 'function') dispatch.afterEach?.(node, context)
-
-      return rv ${
-        // XXX Allowing afterEach is pragmatic, but really it only makes sense
-        // to do so for method definitions that are side effects, i.e. return
-        // `void`.
-        //
-        // Above, `handler?.()` should really just be `handler()`
-        "as T"
-      }
-
+      return rv
     }
   `
 }
@@ -755,11 +718,17 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     return ""
   }
 
-  const union = props.map((ext) => JSON.stringify(ext.name)).join(" | ")
   // TODO Would be nice to also allow defineProperty('name', (node) => ...) directly
   // TODO This API would not make sense for definePropertyExhaustively, though
   return `
-    ${generateSemanticPropertyHelpers(grammar)}
+    ${generateCommonSemanticHelpers(grammar)}
+
+    export type SemanticProperty = ${props.map((ext) => JSON.stringify(ext.name)).join(" | ")}
+
+    type SemanticPropertyType<P extends SemanticProperty> =
+      P extends keyof Semantics ?
+        ( Semantics[P] extends infer UP ? UP : never )
+      : never;
 
     const pStub = (name: string) =>
       stub(\`Semantic property '\${name}' is not defined yet. Use 'defineProperty(\${JSON.stringify(name)}, { ... })' before accessing '.\${name}' on a node.\`)
@@ -771,7 +740,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     }
 
     export function defineProperty<
-      P extends ${union},
+      P extends SemanticProperty,
       R extends SemanticPropertyType<P>
     >(
       name: P,
@@ -795,7 +764,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     }
 
     export function definePropertyExhaustively<
-      P extends ${union},
+      P extends SemanticProperty,
       R extends SemanticPropertyType<P>
     >(
       name: P,
@@ -805,7 +774,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
     }
 
     function dispatchProperty<T, N extends Node>(
-      prop: ${union},
+      prop: SemanticProperty,
       node: N,
       dispatch: PartialDispatch<T, undefined> | DispatchFn<T, []>,
     ): T {
