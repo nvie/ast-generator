@@ -592,20 +592,24 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
   onlyOnce.add(generateCommonSemanticHelpers)
 
   return `
-    interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
+    export interface ExhaustiveDispatch<T, C> {
+      ${grammar.nodes
+        .map((node) => `  ${node.name}(node: ${node.name}, context: C): T;`)
+        .join("\n")}
+    }
+
+    export type DispatchFn<T, C> = (node: Node, ...args: C extends any[] ? C : never) => T;
+
+    export interface PartialDispatch<T, C> extends Partial<ExhaustiveDispatch<T, C>> {
+      beforeEach?(node: Node, context: C): void;
       afterEach?(node: Node, context: C): void;
+
       Node?(node: Node, context: C): T;${
         /*
         // TODO Maybe also allow "Expr" rule as fallback for unions? If so, how to
         // handle it when a node type is part of multiple unions?',
       */ ""
       }
-    }
-
-    interface ExhaustiveDispatch<T, C> {
-      ${grammar.nodes
-        .map((node) => `  ${node.name}(node: ${node.name}, context: C): T;`)
-        .join("\n")}
     }
 
     const NOT_IMPLEMENTED = Symbol();
@@ -686,9 +690,9 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       M extends ${union},
       R = SemanticReturnType<M>,
       C = SemanticContextType<M>,
-    >(name: M, dispatchMap: PartialDispatch<R, C>): void {
+    >(name: M, dispatch: PartialDispatch<R, C> | DispatchFn<R, C>): void {
       if (!semanticMethods.hasOwnProperty(name)) {
-        const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'external method \${name}()' in your grammar?\`)
+        const err = new Error(\`Unknown semantic method '\${name}'. Did you forget to add 'semantic method \${name}()' in your grammar?\`)
         Error.captureStackTrace(err, defineMethod)
         throw err
       }
@@ -700,7 +704,7 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       }
 
       semanticMethods[name] =
-        (node: Node, context: C) => dispatchMethod(name, node, dispatchMap, context)
+        (node: Node, context: C) => dispatchMethod(name, node, dispatch, context)
     }
 
     export function defineMethodExhaustively<
@@ -709,28 +713,29 @@ function generateMethodHelpers(grammar: AGGrammar): string {
       C = SemanticContextType<M>,
     >(
       name: M,
-      dispatchMap: ExhaustiveDispatch<R, C>,
+      dispatch: ExhaustiveDispatch<R, C>,
     ): void {
-      return defineMethod(name, dispatchMap);
+      return defineMethod(name, dispatch);
     }
 
     function dispatchMethod<T, M extends ${union}, N extends Node, C = SemanticContextType<M>>(
       method: M,
       node: N,
-      dispatchMap: PartialDispatch<T, C>,
+      dispatch: PartialDispatch<T, C> | DispatchFn<T, C>,
       context: C,
     ): T {
-      const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
+      const handler = typeof dispatch === 'function' ? dispatch : dispatch[node.${grammar.discriminator}] ?? dispatch.Node;
+
       if (handler === undefined) {
-        if (dispatchMap.afterEach === undefined) {
-          const err = new Error(\`Semantic method '\${method}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
-          Error.captureStackTrace(err, dispatchMethod)
-          throw err
-        }
+        const err = new Error(\`Semantic method '\${method}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
+        Error.captureStackTrace(err, dispatchMethod)
+        throw err
       }
 
-      const rv = handler?.(node as never, context)
-      dispatchMap.afterEach?.(node, context)
+      if (typeof dispatch !== 'function') dispatch.beforeEach?.(node, context)
+      const rv = handler(node as never, context)
+      if (typeof dispatch !== 'function') dispatch.afterEach?.(node, context)
+
       return rv ${
         // XXX Allowing afterEach is pragmatic, but really it only makes sense
         // to do so for method definitions that are side effects, i.e. return
@@ -774,10 +779,10 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       R extends SemanticPropertyType<P>
     >(
       name: P,
-      dispatchMap: PartialDispatch<R, undefined>,
+      dispatch: PartialDispatch<R, undefined> | DispatchFn<R, undefined>,
     ): void {
       if (!semanticPropertyFactories.hasOwnProperty(name)) {
-        const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'external property \${name}' in your grammar?\`)
+        const err = new Error(\`Unknown semantic property '\${name}'. Did you forget to add 'semantic property \${name}' in your grammar?\`)
         Error.captureStackTrace(err, defineProperty)
         throw err
       }
@@ -793,7 +798,7 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       semanticPropertyFactories[name] = (node: Node) => {
         const cache = memoedSemanticProperties[name]
         if (cache.has(node)) return cache.get(node)
-        const rv = dispatchProperty(name, node, dispatchMap)
+        const rv = dispatchProperty(name, node, dispatch)
         cache.set(node, rv)
         return rv
       }
@@ -804,17 +809,17 @@ function generatePropertyHelpers(grammar: AGGrammar): string {
       R extends SemanticPropertyType<P>
     >(
       name: P,
-      dispatchMap: ExhaustiveDispatch<R, undefined>,
+      dispatch: ExhaustiveDispatch<R, undefined>,
     ): void {
-      return defineProperty(name, dispatchMap);
+      return defineProperty(name, dispatch);
     }
 
     function dispatchProperty<T, N extends Node>(
       prop: ${union},
       node: N,
-      dispatchMap: PartialDispatch<T, undefined>,
+      dispatch: PartialDispatch<T, undefined> | DispatchFn<T, undefined>,
     ): T {
-      const handler = dispatchMap[node.${grammar.discriminator}] ?? dispatchMap.Node;
+      const handler = typeof dispatch === 'function' ? dispatch : dispatch[node.${grammar.discriminator}] ?? dispatch.Node;
       if (handler === undefined) {
         const err = new Error(\`Semantic property '\${prop}' is only partially defined and missing definition for '\${node.${grammar.discriminator}}'\`);
         Error.captureStackTrace(err, dispatchProperty)
