@@ -5,10 +5,6 @@ import invariant from "tiny-invariant"
 
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"])
 
-function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
-  return ref.ref === "Raw"
-}
-
 type BuiltinType = { ref: "Raw"; name: string }
 
 // e.g. "MyNode"
@@ -35,8 +31,9 @@ type AGPattern =
 
 // e.g. ['FloatLiteral', 'IntLiteral', 'MyNode']
 type AGUnionDef = {
+  kind: "AGUnionDef"
   name: string
-  members: AGPattern[]
+  members: AGNodeRef[]
 }
 
 type AGField = {
@@ -45,6 +42,7 @@ type AGField = {
 }
 
 type AGNodeDef = {
+  kind: "AGNodeDef"
   name: string
   fieldsByName: LUT<AGField>
   fields: AGField[]
@@ -65,11 +63,15 @@ type AGGrammar = {
   externals: AGSemanticDeclaration[]
   startNode: string
 
-  nodesByName: LUT<AGNodeDef>
-  nodes: AGNodeDef[] // Sorted list of nodes
+  nodeDefsByName: LUT<AGNodeDef>
+  nodeDefinitions: AGNodeDef[] // Sorted list of nodes
 
-  unionsByName: LUT<AGUnionDef>
-  unions: AGUnionDef[] // Sorted list of node unions
+  unionDefsByName: LUT<AGUnionDef>
+  unionDefinitions: AGUnionDef[] // Sorted list of node unions
+
+  // Convenience helper methods
+  // isBuiltinRef(ref: AGNodeRef): boolean
+  isUnionRef(ref: AGNodeRef): boolean
 }
 
 function takeWhile<T>(items: T[], predicate: (item: T) => boolean): T[] {
@@ -202,32 +204,37 @@ semantics.addAttribute<
 
     // Node definitions
     const defs = defList.children.map((d) => d.ast as AGDef)
-    const unionsByName: LUT<AGUnionDef> = {}
-    const nodesByName: LUT<AGNodeDef> = {}
+    const unionDefsByName: LUT<AGUnionDef> = {}
+    const nodeDefsByName: LUT<AGNodeDef> = {}
 
     for (const def of defs) {
-      if ("members" in def) {
-        unionsByName[def.name] = def
+      if (def.kind === "AGUnionDef") {
+        unionDefsByName[def.name] = def
       } else {
-        nodesByName[def.name] = def
+        nodeDefsByName[def.name] = def
       }
     }
 
     return {
       // The first-defined node in the document is the start node
-      startNode: Object.keys(nodesByName)[0]!,
+      startNode: Object.keys(nodeDefsByName)[0]!,
       discriminator,
       externals,
 
-      nodesByName,
-      nodes: Object.keys(nodesByName)
+      nodeDefsByName,
+      nodeDefinitions: Object.keys(nodeDefsByName)
         .sort()
-        .map((name) => nodesByName[name]!),
+        .map((name) => nodeDefsByName[name]!),
 
-      unionsByName,
-      unions: Object.keys(unionsByName)
+      unionDefsByName,
+      unionDefinitions: Object.keys(unionDefsByName)
         .sort()
-        .map((name) => unionsByName[name]!),
+        .map((name) => unionDefsByName[name]!),
+
+      // isBuiltinRef(ref) { return ref.ref === "Raw" },
+      isUnionRef(ref) {
+        return ref.ref === "Node" && unionDefsByName[ref.name] !== undefined
+      },
     }
   },
 
@@ -251,6 +258,7 @@ semantics.addAttribute<
     const fields = fieldList.children.map((f) => f.ast as AGField)
     const fieldsByName = index(fields, (f) => f.name)
     return {
+      kind: "AGNodeDef",
       name: name.ast as string,
       fieldsByName,
       fields,
@@ -259,8 +267,9 @@ semantics.addAttribute<
 
   AGUnionDef(name, _eq, _pipe, memberList): AGUnionDef {
     return {
+      kind: "AGUnionDef",
       name: name.ast as string,
-      members: memberList.asIteration().children.map((m) => m.ast as AGPattern),
+      members: memberList.asIteration().children.map((m) => m.ast as AGNodeRef),
     }
   },
 
@@ -414,8 +423,8 @@ function getBareRef(pat: AGPattern): string {
       : pat.name
 }
 
-function getBareRefTarget(pat: AGPattern): "Node" | "Raw" {
-  return pat.ref === "Optional" || pat.ref === "List" ? getBareRefTarget(pat.of) : pat.ref
+function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
+  return ref.ref === "Raw"
 }
 
 function getTypeScriptType(pat: AGPattern): string {
@@ -432,21 +441,21 @@ function validate(grammar: AGGrammar) {
   // Keep track of which node names are referenced/used
   const referenced = new Set<string>()
 
-  for (const nodeUnion of grammar.unions) {
-    for (const ref of nodeUnion.members) {
-      const memberName = getBareRef(ref)
+  for (const unionDef of grammar.unionDefinitions) {
+    for (const member of unionDef.members) {
+      const memberName = getBareRef(member)
       referenced.add(memberName)
       invariant(
-        grammar.nodesByName[memberName] ??
-          (nodeUnion.name !== memberName && !!grammar.unionsByName[memberName]),
-        `Member "${memberName}" of union "${nodeUnion.name}" is not defined in the grammar`
+        grammar.nodeDefsByName[memberName] ??
+          (unionDef.name !== memberName && !!grammar.unionDefsByName[memberName]),
+        `Member "${memberName}" of union "${unionDef.name}" is not defined in the grammar`
       )
     }
   }
 
   const semanticFields = [...grammar.externals.map((ext) => ext.name)]
 
-  for (const node of grammar.nodes) {
+  for (const node of grammar.nodeDefinitions) {
     for (const field of node.fields) {
       invariant(
         field.name !== grammar.discriminator,
@@ -466,15 +475,15 @@ function validate(grammar: AGGrammar) {
       referenced.add(bare)
       invariant(
         isBuiltInType(base) ||
-          !!grammar.unionsByName[bare] ||
-          !!grammar.nodesByName[bare],
+          !!grammar.unionDefsByName[bare] ||
+          !!grammar.nodeDefsByName[bare],
         `Unknown node kind "${bare}" (in "${node.name}.${field.name}")`
       )
     }
   }
 
   // Check that all defined nodes are referenced
-  const unreferenced = new Set(grammar.nodes.map((n) => n.name))
+  const unreferenced = new Set(grammar.nodeDefinitions.map((n) => n.name))
   for (const name of referenced) {
     unreferenced.delete(name)
   }
@@ -592,7 +601,7 @@ function generateCommonSemanticHelpers(grammar: AGGrammar): string {
         : never
 
     export interface ExhaustiveDispatchMap<T, C> {
-      ${grammar.nodes
+      ${grammar.nodeDefinitions
         .map((node) => `  ${node.name}(node: ${node.name}, context: C): T;`)
         .join("\n")}
     }
@@ -876,11 +885,8 @@ function generateCode(grammar: AGGrammar): string {
     `,
   ]
 
-  for (const union of grammar.unions) {
-    const [subNodes, subUnions] = partition(
-      union.members,
-      (ref) => getBareRefTarget(ref) === "Node"
-    )
+  for (const union of grammar.unionDefinitions) {
+    const [subUnions, subNodes] = partition(union.members, grammar.isUnionRef)
     const conditions = subNodes
       .map(
         (ref) => `value.${grammar.discriminator} === ${JSON.stringify(getBareRef(ref))}`
@@ -893,7 +899,7 @@ function generateCode(grammar: AGGrammar): string {
     `)
   }
 
-  for (const union of grammar.unions) {
+  for (const union of grammar.unionDefinitions) {
     output.push(`
       export type ${union.name} =
         ${union.members.map((member) => getBareRef(member)).join(" | ")};
@@ -904,10 +910,10 @@ function generateCode(grammar: AGGrammar): string {
     ${generateMethodHelpers(grammar)}
     ${generatePropertyHelpers(grammar)}
 
-    export type Node = ${grammar.nodes.map((node) => node.name).join(" | ")}
+    export type Node = ${grammar.nodeDefinitions.map((node) => node.name).join(" | ")}
 
     export type ChildrenOf<N extends Node> = {
-      ${grammar.nodes
+      ${grammar.nodeDefinitions
         .map((node) => {
           const nodeType = node.name
           const childTypes = new Set(
@@ -953,7 +959,7 @@ function generateCode(grammar: AGGrammar): string {
     }
   `)
 
-  for (const node of grammar.nodes) {
+  for (const node of grammar.nodeDefinitions) {
     output.push(`
       export interface ${node.name} extends Semantics {
           ${grammar.discriminator}: ${JSON.stringify(node.name)}
@@ -976,7 +982,7 @@ function generateCode(grammar: AGGrammar): string {
   }
 
   output.push("")
-  for (const node of grammar.nodes) {
+  for (const node of grammar.nodeDefinitions) {
     const optionals = new Set(
       takeWhile(
         node.fields.slice().reverse(),
@@ -1020,7 +1026,7 @@ function generateCode(grammar: AGGrammar): string {
       switch (node.${grammar.discriminator}) {
   `)
 
-  for (const node of grammar.nodes) {
+  for (const node of grammar.nodeDefinitions) {
     const fields = node.fields.filter(
       (field) => !isBuiltInType(getNodeRef(field.pattern))
     )
