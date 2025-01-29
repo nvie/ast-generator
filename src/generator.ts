@@ -1034,17 +1034,17 @@ function generateCode(grammar: AGGrammar): string {
         }),
         "range: Range = [0, 0]",
       ].join(", ")}): ${node.name} {
-                ${
-                  runtimeTypeChecks.length > 0
-                    ? `DEBUG && (() => { ${runtimeTypeChecks.join("\n")} })()`
-                    : ""
-                }
-                return createNode({
-                    ${grammar.discriminator}: ${JSON.stringify(node.name)},
-                    ${[...node.fields.map((field) => field.name), "range"].join(", ")}
-                });
-            }
-            `)
+        ${
+          runtimeTypeChecks.length > 0
+            ? `DEBUG && (() => { ${runtimeTypeChecks.join("\n")} })()`
+            : ""
+        }
+        return createNode({
+            ${grammar.discriminator}: ${JSON.stringify(node.name)},
+            ${[...node.fields.map((field) => field.name), "range"].join(", ")}
+        });
+      }
+    `)
   }
 
   output.push(`
