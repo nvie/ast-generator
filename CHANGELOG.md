@@ -3,6 +3,8 @@
 - **Breaking** Node unions no longer have to be written using `@MyUnion` syntax. This is
   now "just" `MyUnion`. The definition itself determines whether it's a union or a basic
   node.
+- Added support for literal types, e.g., `op: ">" | "<" | ">=" | "<="` (previously the
+  closest best thing was `op: string`).
 
 ## [0.4.0] - 2025-01-29
 

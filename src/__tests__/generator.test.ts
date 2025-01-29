@@ -38,6 +38,9 @@ Pqr {
 # This is a comment
 Stu {
   s: number
+  op: ">" | "<" | ">=" | "<="
+  version?: 1
+  bits: 0 | 1 *
 }
 `)
     ).toMatchSnapshot()

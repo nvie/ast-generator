@@ -34,7 +34,7 @@ The following grammar definition (in a file called `ast.grammar`) describes thre
 // In ast.grammar
 
 Document {
-  version?: number
+  version?: 1 | 2
   shapes: Shape*
 }
 
@@ -67,7 +67,7 @@ export type Node = Document | Shape | Circle
 
 export type Document = {
   type: "Document"
-  version: number | null
+  version: 1 | 2 | null
   shapes: Shape[]
 }
 
@@ -94,7 +94,7 @@ export type Rect = {
 Each node will get a lowercased function to construct the associated node type.
 
 ```ts
-export function document(version: number | null, shapes: Shape[]): Document {}
+export function document(version: 1 | 2 | null, shapes: Shape[]): Document {}
 export function circle(cx: number, cy: number, r: number): Circle {}
 export function rect(x: number, y: number, width: number, height: number): Rect {}
 ```
@@ -164,7 +164,7 @@ This would produce the node types as:
 ```ts
 export type Document = {
   _kind: "Document" // 👈
-  version: number | null
+  version: 1 | 2 | null
   shapes: Shape[]
 }
 
@@ -197,7 +197,7 @@ semantic method prettify()
 semantic method check()
 
 Document {
-  version?: number
+  version?: 1 | 2
   shapes: Shape*
 }
 
