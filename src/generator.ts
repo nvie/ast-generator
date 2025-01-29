@@ -164,7 +164,7 @@ const grammar = ohm.grammar(String.raw`
         = nodename "{" Field* "}"
 
       UnionDef
-        = nodename "=" "|"? NonemptyListOf<TypeRef, "|">
+        = nodename "=" "|"? NonemptyListOf<NodeRef, "|">
 
       Field
         = identifier "?"? ":" RepeatedPattern
@@ -173,8 +173,11 @@ const grammar = ohm.grammar(String.raw`
         = TypeRef ("+" | "*")?
 
       TypeRef
-        = BuiltinTSTypeUnion  -- builtin
-        | nodename            -- node
+        = BuiltinTSTypeUnion
+        | NodeRef
+
+      NodeRef
+        = nodename
 
       BuiltinTSTypeUnion
         = NonemptyListOf<BuiltinType, "|">
@@ -310,7 +313,7 @@ semantics.addAttribute<
     return ref
   },
 
-  TypeRef_node(nodename): NodeRef {
+  NodeRef(nodename): NodeRef {
     return { kind: "NodeRef", name: nodename.ast as string }
   },
 
@@ -336,7 +339,7 @@ semantics.addOperation<ohm.Node[]>("allRefs", {
   _iter(...children) {
     return children.flatMap((c) => (c.allRefs as () => ohm.Node[])())
   },
-  TypeRef_node(_nodename) {
+  NodeRef(_nodename) {
     return [this]
   },
 })
