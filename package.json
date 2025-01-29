@@ -1,6 +1,6 @@
 {
   "name": "ast-generator",
-  "version": "0.4.0-rc1",
+  "version": "0.4.0",
   "description": "Helper to generate a TypeScript or JavaScript module for an arbitrary AST definition from a specification.",
   "type": "module",
   "bin": {

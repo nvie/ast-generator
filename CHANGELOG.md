@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.4.0] - 2025-01-29
+
 - Every Node now has generated `.children` and `.descendants` iterator properties, which
   enable you to iterate over all of its children in a type-safe manner.
 - Add support for addition of externally defined semantic properties/methods.
