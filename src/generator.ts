@@ -3,13 +3,19 @@ import * as ohm from "ohm-js"
 import prettier from "prettier"
 import invariant from "tiny-invariant"
 
-const TYPEOF_CHECKS = new Set(["number", "string", "boolean"])
+type TSNativeType = {
+  kind: "TSNativeType"
+  typeName: "string" | "number" | "boolean"
+}
 
-type NativeTSType = "string" | "number" | "boolean" | "null"
+type TSLiteralType = {
+  kind: "TSLiteralType"
+  constant: string | number | null
+}
 
 type BuiltinTS = {
   kind: "BuiltinTS"
-  types: NativeTSType[]
+  types: (TSNativeType | TSLiteralType)[]
 }
 
 type NodeRef = {
@@ -19,7 +25,7 @@ type NodeRef = {
 
 // e.g. MyNode or string | boolean
 type TypeRef =
-  | BuiltinTS // e.g. boolean, or string | boolean
+  | BuiltinTS // e.g. boolean, or string | boolean, or 42 | "foo"
   | NodeRef
 
 // e.g. MyNode+
@@ -130,7 +136,11 @@ const grammar = ohm.grammar(String.raw`
       identStart = letter | "_"
       nodename (a node name) = upper wordchar*
       identifier (an identifier) = ~keyword identStart wordchar*
-      quotedIdentifier = "\"" identifier "\""
+      stringLiteral (a string) = doubleQuotedString
+      doubleQuotedString = "\"" doubleQuotedStringCont* "\""
+      doubleQuotedStringCont
+        = "\\" any         -- escaped
+        | ~"\"" ~"\n" any  -- content
 
       // Keywords
       keyword  = semantic | property | method | set
@@ -144,7 +154,7 @@ const grammar = ohm.grammar(String.raw`
         | SemanticDeclaration
 
       SetStatement
-        = set "discriminator" quotedIdentifier
+        = set "discriminator" stringLiteral
 
       SemanticDeclaration
         = SemanticPropertyDeclaration
@@ -182,12 +192,19 @@ const grammar = ohm.grammar(String.raw`
       BuiltinTSTypeUnion
         = NonemptyListOf<BuiltinType, "|">
 
-      // e.g. \`boolean\`, or \`string | boolean\`
+      // e.g. \`boolean\`, or \`string | boolean\`, or \`42 | "foo"\`
       BuiltinType
+        = TSNativeType | TSLiteralType
+
+      TSNativeType
         = "string"
         | "number"
         | "boolean"
-        | "null"
+
+      TSLiteralType
+        = "null"
+        | doubleQuotedString
+        | digit+
     }
   `)
 
@@ -203,6 +220,8 @@ semantics.addAttribute<
   | RepeatedTypePattern
   | TypePattern
   | BuiltinTS
+  | TSNativeType
+  | TSLiteralType
   | string
 >("ast", {
   nodename(_upper, _wordchar): string { return this.sourceString }, // prettier-ignore
@@ -273,8 +292,19 @@ semantics.addAttribute<
     }
   },
 
-  quotedIdentifier(_lq, identifier, _rq): string {
-    return identifier.ast as string
+  doubleQuotedString(_lq, _content, _rq): string {
+    return (
+      this.sourceString
+        .slice(1, -1)
+
+        // Escaping replaces special characters
+        .replace(/\\n/g, "\n")
+        .replace(/\\t/g, "\t")
+        .replace(/\\r/g, "\r")
+
+        // But escaping any other non-special char just keeps it literally
+        .replace(/\\(.)/g, "$1")
+    )
   },
 
   NodeDef(name, _lbracket, fieldList, _rbracket): NodeDef {
@@ -320,12 +350,22 @@ semantics.addAttribute<
   BuiltinTSTypeUnion(list): BuiltinTS {
     return {
       kind: "BuiltinTS",
-      types: list.asIteration().children.map((child) => child.ast as NativeTSType),
+      types: list.asIteration().children.map((child) => child.ast as TSNativeType),
     }
   },
 
-  BuiltinType(type): NativeTSType {
-    return type.sourceString as NativeTSType
+  TSNativeType(type): TSNativeType {
+    return {
+      kind: "TSNativeType",
+      typeName: type.sourceString as TSNativeType["typeName"],
+    }
+  },
+
+  TSLiteralType(type): TSLiteralType {
+    return {
+      kind: "TSLiteralType",
+      constant: JSON.parse(type.sourceString) as string | number,
+    }
   },
 })
 
@@ -428,7 +468,13 @@ function serializeRef(pat: TypePattern): string {
   } else if (pat.kind === "NodeRef") {
     return pat.name
   } else {
-    return pat.types.join(" | ")
+    return pat.types
+      .map((builtin) =>
+        builtin.kind === "TSNativeType"
+          ? builtin.typeName
+          : JSON.stringify(builtin.constant)
+      )
+      .join(" | ")
   }
 }
 
@@ -460,16 +506,28 @@ function isNodeRef(ref: TypeRef): ref is NodeRef {
 
 function getTypeScriptType(pat: TypePattern): string {
   return pat.kind === "Optional"
-    ? getTypeScriptType(pat.of) + " | null"
+    ? `(${getTypeScriptType(pat.of)}) | null`
     : pat.kind === "List"
-      ? getTypeScriptType(pat.of) + "[]"
+      ? `(${getTypeScriptType(pat.of)})[]`
       : isBuiltinTypeRef(pat)
-        ? pat.types.join(" | ")
+        ? pat.types
+            .map((builtin) =>
+              builtin.kind === "TSNativeType"
+                ? builtin.typeName
+                : JSON.stringify(builtin.constant)
+            )
+            .join(" | ")
         : pat.name
 }
 
 function validate(grammar: Grammar) {
-  // Keep track of which node names are referenced/used
+  // Ensure discriminator is a valid identifier
+  invariant(
+    /^[a-z_]\w*$/i.test(grammar.discriminator),
+    `Discriminator '${grammar.discriminator}' should be valid JavaScript identifier`
+  )
+
+  // Keep track of which node/union names are referenced/used
   const referenced = new Set<string>()
 
   for (const unionDef of grammar.unionDefinitions) {
@@ -570,14 +628,11 @@ function generateTypeCheckCondition(
   } else if (isBuiltinTypeRef(expected)) {
     conditions.push(
       `( ${expected.types
-        .flatMap((tsType) => {
-          if (TYPEOF_CHECKS.has(tsType)) {
-            return [`typeof ${actualValue} === ${JSON.stringify(tsType)}`]
-          } else if (tsType === "null") {
-            return [`${actualValue} === null`]
+        .map((builtin) => {
+          if (builtin.kind === "TSNativeType") {
+            return `typeof ${actualValue} === ${JSON.stringify(builtin.typeName)}`
           } else {
-            console.warn(`Cannot emit runtime type check for ${tsType}`)
-            return []
+            return `${actualValue} === ${JSON.stringify(builtin.constant)}`
           }
         })
         .join(" || ")})`
