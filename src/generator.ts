@@ -5,10 +5,11 @@ import invariant from "tiny-invariant"
 
 const TYPEOF_CHECKS = new Set(["number", "string", "boolean"])
 
-// XXX Make this a list with members
+type NativeTSType = "string" | "number" | "boolean" | "null"
+
 type BuiltinTS = {
   kind: "BuiltinTS"
-  name: string
+  types: NativeTSType[]
 }
 
 type NodeRef = {
@@ -132,7 +133,7 @@ const grammar = ohm.grammar(String.raw`
       quotedIdentifier = "\"" identifier "\""
 
       // Keywords
-      keyword = semantic | property | method | set
+      keyword  = semantic | property | method | set
       semantic = "semantic" ~wordchar
       property = "property" ~wordchar
       method   = "method" ~wordchar
@@ -173,7 +174,7 @@ const grammar = ohm.grammar(String.raw`
 
       TypeRef
         = BuiltinTSTypeUnion  -- builtin
-        | nodename          -- node
+        | nodename            -- node
 
       BuiltinTSTypeUnion
         = NonemptyListOf<BuiltinType, "|">
@@ -228,6 +229,8 @@ semantics.addAttribute<
     }
 
     return {
+      kind: "Grammar",
+
       // The first-defined node in the document is the start node
       startNode: Object.keys(nodeDefsByName)[0]!,
       discriminator,
@@ -259,7 +262,12 @@ semantics.addAttribute<
   },
 
   SetStatement(_set, settingName, quotedName): SetStatement {
-    return { type: "set", key: settingName.sourceString, value: quotedName.ast as string }
+    return {
+      kind: "SetStatement",
+      type: "set",
+      key: settingName.sourceString,
+      value: quotedName.ast as string,
+    }
   },
 
   quotedIdentifier(_lq, identifier, _rq): string {
@@ -290,7 +298,7 @@ semantics.addAttribute<
     if (qmark.children.length > 0) {
       pattern = { kind: "Optional", of: pattern }
     }
-    return { name: name.ast as string, pattern }
+    return { kind: "Field", name: name.ast as string, pattern }
   },
 
   RepeatedPattern(refNode, multiplier): RepeatedTypePattern {
@@ -309,8 +317,12 @@ semantics.addAttribute<
   BuiltinTSTypeUnion(list): BuiltinTS {
     return {
       kind: "BuiltinTS",
-      name: list.sourceString,
+      types: list.asIteration().children.map((child) => child.ast as NativeTSType),
     }
+  },
+
+  BuiltinType(type): NativeTSType {
+    return type.sourceString as NativeTSType
   },
 })
 
@@ -371,16 +383,14 @@ semantics.addOperation<undefined>("check", {
     unused.delete((this.ast as Grammar).startNode)
 
     for (const ohmNode of (this.allRefs as () => ohm.Node[])()) {
-      const nodeRef = ohmNode.ast as TypeRef
+      const nodeRef = ohmNode.ast as NodeRef
       unused.delete(nodeRef.name)
 
       // Check that all node refs are valid
-      if (nodeRef.kind === "NodeRef") {
-        if (!declaredNames.includes(nodeRef.name)) {
-          throw new Error(
-            ohmNode.source.getLineAndColumnMessage() + `Cannot find '${nodeRef.name}'`
-          )
-        }
+      if (!declaredNames.includes(nodeRef.name)) {
+        throw new Error(
+          ohmNode.source.getLineAndColumnMessage() + `Cannot find '${nodeRef.name}'`
+        )
       }
     }
 
@@ -415,7 +425,7 @@ function serializeRef(pat: TypePattern): string {
   } else if (pat.kind === "NodeRef") {
     return pat.name
   } else {
-    return pat.name
+    return pat.types.join(" | ")
   }
 }
 
@@ -427,16 +437,22 @@ function getNodeRef(pat: TypePattern): TypeRef {
       : pat
 }
 
-function getBareRef(pat: TypePattern): string {
+function getBareNodeRef(pat: TypePattern): string | undefined {
   return pat.kind === "Optional"
-    ? getBareRef(pat.of)
+    ? getBareNodeRef(pat.of)
     : pat.kind === "List"
-      ? getBareRef(pat.of)
-      : pat.name
+      ? getBareNodeRef(pat.of)
+      : pat.kind === "NodeRef"
+        ? pat.name
+        : undefined
 }
 
 function isBuiltinTypeRef(ref: TypeRef): ref is BuiltinTS {
   return ref.kind === "BuiltinTS"
+}
+
+function isNodeRef(ref: TypeRef): ref is NodeRef {
+  return ref.kind === "NodeRef"
 }
 
 function getTypeScriptType(pat: TypePattern): string {
@@ -445,7 +461,7 @@ function getTypeScriptType(pat: TypePattern): string {
     : pat.kind === "List"
       ? getTypeScriptType(pat.of) + "[]"
       : isBuiltinTypeRef(pat)
-        ? pat.name
+        ? pat.types.join(" | ")
         : pat.name
 }
 
@@ -455,7 +471,8 @@ function validate(grammar: Grammar) {
 
   for (const unionDef of grammar.unionDefinitions) {
     for (const member of unionDef.members) {
-      const memberName = getBareRef(member)
+      const memberName = getBareNodeRef(member)
+      if (memberName === undefined) continue
       referenced.add(memberName)
       invariant(
         grammar.nodeDefsByName[memberName] ??
@@ -482,7 +499,9 @@ function validate(grammar: Grammar) {
         `Field '${node.name}.${field.name}' conflicts with semantic property/method`
       )
 
-      const bare = getBareRef(field.pattern)
+      const bare = getBareNodeRef(field.pattern)
+      if (bare === undefined) continue
+
       const base = getNodeRef(field.pattern)
       referenced.add(bare)
       invariant(
@@ -549,17 +568,14 @@ function generateTypeCheckCondition(
     conditions.push(`is${expected.name}(${actualValue})`)
   } else if (isBuiltinTypeRef(expected)) {
     conditions.push(
-      `( ${expected.name
-        .replace(/`/g, "")
-        .split("|")
-        .flatMap((part) => {
-          part = part.trim()
-          if (TYPEOF_CHECKS.has(part)) {
-            return [`typeof ${actualValue} === ${JSON.stringify(part)}`]
-          } else if (part === "null") {
+      `( ${expected.types
+        .flatMap((tsType) => {
+          if (TYPEOF_CHECKS.has(tsType)) {
+            return [`typeof ${actualValue} === ${JSON.stringify(tsType)}`]
+          } else if (tsType === "null") {
             return [`${actualValue} === null`]
           } else {
-            console.warn(`Cannot emit runtime type check for ${part}`)
+            console.warn(`Cannot emit runtime type check for ${tsType}`)
             return []
           }
         })
@@ -901,9 +917,10 @@ function generateCode(grammar: Grammar): string {
     const [subUnions, subNodes] = partition(union.members, grammar.isUnionRef)
     const conditions = subNodes
       .map(
-        (ref) => `value.${grammar.discriminator} === ${JSON.stringify(getBareRef(ref))}`
+        (ref) =>
+          `value.${grammar.discriminator} === ${JSON.stringify(getBareNodeRef(ref))}`
       )
-      .concat(subUnions.map((ref) => `is${getBareRef(ref)}(value)`))
+      .concat(subUnions.map((ref) => `is${getBareNodeRef(ref)}(value)`))
     output.push(`
       export function is${union.name}(value: unknown): value is ${union.name} {
         return isNode(value) && (${conditions.join(" || ")})
@@ -914,7 +931,7 @@ function generateCode(grammar: Grammar): string {
   for (const union of grammar.unionDefinitions) {
     output.push(`
       export type ${union.name} =
-        ${union.members.map((member) => getBareRef(member)).join(" | ")};
+        ${union.members.map((member) => getBareNodeRef(member)).join(" | ")};
     `)
   }
 
@@ -931,7 +948,7 @@ function generateCode(grammar: Grammar): string {
           const childTypes = new Set(
             node.fields
               .map((f) => getNodeRef(f.pattern))
-              .filter((ref) => !isBuiltinTypeRef(ref))
+              .filter(isNodeRef)
               .map((ref) => ref.name)
           )
           return `${JSON.stringify(nodeType)}: ${[...childTypes].join(" | ") || "never"},`

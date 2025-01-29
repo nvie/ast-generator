@@ -25,654 +25,772 @@ exports[`parsing grammars > parses a grammar 1`] = `
       "type": "property",
     },
   ],
-  "nodes": [
+  "isUnionRef": [Function],
+  "kind": "Grammar",
+  "nodeDefinitions": [
     {
       "fields": [
         {
+          "kind": "Field",
           "name": "x0",
           "pattern": {
-            "name": "string",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "string",
+            ],
           },
         },
         {
+          "kind": "Field",
           "name": "x1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "x2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "x3",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "Optional",
           },
         },
         {
+          "kind": "Field",
           "name": "y0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Xyz",
-            "ref": "Node",
           },
         },
         {
+          "kind": "Field",
           "name": "y1",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "y2",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "y3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         {
+          "kind": "Field",
           "name": "y4",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         {
+          "kind": "Field",
           "name": "z0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Pqr",
-            "ref": "Node",
           },
         },
         {
+          "kind": "Field",
           "name": "z1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "z2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "z3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
       ],
       "fieldsByName": {
         "x0": {
+          "kind": "Field",
           "name": "x0",
           "pattern": {
-            "name": "string",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "string",
+            ],
           },
         },
         "x1": {
+          "kind": "Field",
           "name": "x1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         "x2": {
+          "kind": "Field",
           "name": "x2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         "x3": {
+          "kind": "Field",
           "name": "x3",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "Optional",
           },
         },
         "y0": {
+          "kind": "Field",
           "name": "y0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Xyz",
-            "ref": "Node",
           },
         },
         "y1": {
+          "kind": "Field",
           "name": "y1",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "y2": {
+          "kind": "Field",
           "name": "y2",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "y3": {
+          "kind": "Field",
           "name": "y3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         "y4": {
+          "kind": "Field",
           "name": "y4",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         "z0": {
+          "kind": "Field",
           "name": "z0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Pqr",
-            "ref": "Node",
           },
         },
         "z1": {
+          "kind": "Field",
           "name": "z1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "z2": {
+          "kind": "Field",
           "name": "z2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "z3": {
+          "kind": "Field",
           "name": "z3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
       },
+      "kind": "NodeDef",
       "name": "Abc",
     },
     {
       "fields": [
         {
+          "kind": "Field",
           "name": "p",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "number",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "number",
+              ],
             },
-            "ref": "Optional",
           },
         },
       ],
       "fieldsByName": {
         "p": {
+          "kind": "Field",
           "name": "p",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "number",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "number",
+              ],
             },
-            "ref": "Optional",
           },
         },
       },
+      "kind": "NodeDef",
       "name": "Pqr",
     },
     {
       "fields": [
         {
+          "kind": "Field",
           "name": "s",
           "pattern": {
-            "name": "number",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "number",
+            ],
           },
         },
       ],
       "fieldsByName": {
         "s": {
+          "kind": "Field",
           "name": "s",
           "pattern": {
-            "name": "number",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "number",
+            ],
           },
         },
       },
+      "kind": "NodeDef",
       "name": "Stu",
     },
   ],
-  "nodesByName": {
+  "nodeDefsByName": {
     "Abc": {
       "fields": [
         {
+          "kind": "Field",
           "name": "x0",
           "pattern": {
-            "name": "string",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "string",
+            ],
           },
         },
         {
+          "kind": "Field",
           "name": "x1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "x2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "x3",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "Optional",
           },
         },
         {
+          "kind": "Field",
           "name": "y0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Xyz",
-            "ref": "Node",
           },
         },
         {
+          "kind": "Field",
           "name": "y1",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "y2",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "y3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         {
+          "kind": "Field",
           "name": "y4",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         {
+          "kind": "Field",
           "name": "z0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Pqr",
-            "ref": "Node",
           },
         },
         {
+          "kind": "Field",
           "name": "z1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "z2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         {
+          "kind": "Field",
           "name": "z3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
       ],
       "fieldsByName": {
         "x0": {
+          "kind": "Field",
           "name": "x0",
           "pattern": {
-            "name": "string",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "string",
+            ],
           },
         },
         "x1": {
+          "kind": "Field",
           "name": "x1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         "x2": {
+          "kind": "Field",
           "name": "x2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "List",
           },
         },
         "x3": {
+          "kind": "Field",
           "name": "x3",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "string",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "string",
+              ],
             },
-            "ref": "Optional",
           },
         },
         "y0": {
+          "kind": "Field",
           "name": "y0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Xyz",
-            "ref": "Node",
           },
         },
         "y1": {
+          "kind": "Field",
           "name": "y1",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "y2": {
+          "kind": "Field",
           "name": "y2",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "y3": {
+          "kind": "Field",
           "name": "y3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         "y4": {
+          "kind": "Field",
           "name": "y4",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Xyz",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
         "z0": {
+          "kind": "Field",
           "name": "z0",
           "pattern": {
+            "kind": "NodeRef",
             "name": "Pqr",
-            "ref": "Node",
           },
         },
         "z1": {
+          "kind": "Field",
           "name": "z1",
           "pattern": {
+            "kind": "List",
             "min": 1,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "z2": {
+          "kind": "Field",
           "name": "z2",
           "pattern": {
+            "kind": "List",
             "min": 0,
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "List",
           },
         },
         "z3": {
+          "kind": "Field",
           "name": "z3",
           "pattern": {
+            "kind": "Optional",
             "of": {
+              "kind": "NodeRef",
               "name": "Pqr",
-              "ref": "Node",
             },
-            "ref": "Optional",
           },
         },
       },
+      "kind": "NodeDef",
       "name": "Abc",
     },
     "Pqr": {
       "fields": [
         {
+          "kind": "Field",
           "name": "p",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "number",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "number",
+              ],
             },
-            "ref": "Optional",
           },
         },
       ],
       "fieldsByName": {
         "p": {
+          "kind": "Field",
           "name": "p",
           "pattern": {
+            "kind": "Optional",
             "of": {
-              "name": "number",
-              "ref": "Raw",
+              "kind": "BuiltinTS",
+              "types": [
+                "number",
+              ],
             },
-            "ref": "Optional",
           },
         },
       },
+      "kind": "NodeDef",
       "name": "Pqr",
     },
     "Stu": {
       "fields": [
         {
+          "kind": "Field",
           "name": "s",
           "pattern": {
-            "name": "number",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "number",
+            ],
           },
         },
       ],
       "fieldsByName": {
         "s": {
+          "kind": "Field",
           "name": "s",
           "pattern": {
-            "name": "number",
-            "ref": "Raw",
+            "kind": "BuiltinTS",
+            "types": [
+              "number",
+            ],
           },
         },
       },
+      "kind": "NodeDef",
       "name": "Stu",
     },
   },
   "startNode": "Abc",
-  "unions": [
+  "unionDefinitions": [
     {
+      "kind": "UnionDef",
       "members": [
         {
+          "kind": "NodeRef",
           "name": "Pqr",
-          "ref": "Node",
         },
         {
+          "kind": "NodeRef",
           "name": "Stu",
-          "ref": "Node",
         },
       ],
       "name": "Xyz",
     },
   ],
-  "unionsByName": {
+  "unionDefsByName": {
     "Xyz": {
+      "kind": "UnionDef",
       "members": [
         {
+          "kind": "NodeRef",
           "name": "Pqr",
-          "ref": "Node",
         },
         {
+          "kind": "NodeRef",
           "name": "Stu",
-          "ref": "Node",
         },
       ],
       "name": "Xyz",
