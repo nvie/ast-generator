@@ -837,7 +837,7 @@ function generateCode(grammar: AGGrammar): string {
     /**
      * Intended to augment by end users.
      *
-     * See https://github.com/nvie/ast-generator/blob/main/README.md#assigning-semantics-meaning-to-nodes
+     * See https://github.com/nvie/ast-generator/blob/main/README.md#assigning-semantic-meaning-to-nodes
      */
     export interface Semantics { }
 
