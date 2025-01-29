@@ -53,7 +53,7 @@ type NodeDef = {
 type UnionDef = {
   kind: "UnionDef"
   name: string
-  members: TypeRef[]
+  members: NodeRef[]
 }
 
 type Field = {
@@ -471,13 +471,11 @@ function validate(grammar: Grammar) {
 
   for (const unionDef of grammar.unionDefinitions) {
     for (const member of unionDef.members) {
-      const memberName = getBareNodeRef(member)
-      if (memberName === undefined) continue
-      referenced.add(memberName)
+      referenced.add(member.name)
       invariant(
-        grammar.nodeDefsByName[memberName] ??
-          (unionDef.name !== memberName && !!grammar.unionDefsByName[memberName]),
-        `Member "${memberName}" of union "${unionDef.name}" is not defined in the grammar`
+        grammar.nodeDefsByName[member.name] ??
+          (unionDef.name !== member.name && !!grammar.unionDefsByName[member.name]),
+        `Member "${member.name}" of union "${unionDef.name}" is not defined in the grammar`
       )
     }
   }
@@ -914,13 +912,10 @@ function generateCode(grammar: Grammar): string {
   ]
 
   for (const union of grammar.unionDefinitions) {
-    const [subUnions, subNodes] = partition(union.members, grammar.isUnionRef)
+    const [subUnions, subNodes] = partition(union.members, (m) => grammar.isUnionRef(m))
     const conditions = subNodes
-      .map(
-        (ref) =>
-          `value.${grammar.discriminator} === ${JSON.stringify(getBareNodeRef(ref))}`
-      )
-      .concat(subUnions.map((ref) => `is${getBareNodeRef(ref)}(value)`))
+      .map((ref) => `value.${grammar.discriminator} === ${JSON.stringify(ref.name)}`)
+      .concat(subUnions.map((ref) => `is${ref.name}(value)`))
     output.push(`
       export function is${union.name}(value: unknown): value is ${union.name} {
         return isNode(value) && (${conditions.join(" || ")})
@@ -931,7 +926,7 @@ function generateCode(grammar: Grammar): string {
   for (const union of grammar.unionDefinitions) {
     output.push(`
       export type ${union.name} =
-        ${union.members.map((member) => getBareNodeRef(member)).join(" | ")};
+        ${union.members.map((member) => member.name).join(" | ")};
     `)
   }
 
