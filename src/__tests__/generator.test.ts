@@ -18,18 +18,18 @@ Abc {
   string
   x1: string+
   x2: string*
-  x3?:string y0:@Xyz
-  y1: @Xyz*
-  y2: @Xyz+
-  y3?: @Xyz
-  y4?: @Xyz
+  x3?:string y0:Xyz
+  y1: Xyz*
+  y2: Xyz+
+  y3?: Xyz
+  y4?: Xyz
   z0: Pqr
   z1: Pqr+
   z2: Pqr*
   z3?: Pqr
 }
 
-@Xyz = Pqr | Stu
+Xyz = Pqr | Stu
 
 Pqr {
   p?: number
@@ -59,8 +59,8 @@ describe("checking document validity", () => {
       parseGrammarFromString(`
       Foo {}
       Bar {}
-      @Bar = Foo
-      @Bar = Bar
+      Bar = Foo
+      Bar = Bar
    `)
     ).toThrow("Duplicate definition of 'Bar'")
   })
@@ -70,7 +70,7 @@ describe("checking document validity", () => {
       parseGrammarFromString(`
       Foo {}
       Bar {}
-      @Foo = Bar
+      Foo = Bar
    `)
     ).toThrow("Duplicate definition of 'Foo'")
   })
@@ -88,13 +88,13 @@ describe("checking document validity", () => {
   it("thrown when there is an unknown reference (node)", () => {
     expect(() =>
       parseGrammarFromString(`
-      Foo { bar: @Ba }
-      #          ^^^ Typo, should fail
-      @Bar = Qux | Mutt
+      Foo { bar: Ba }
+      #          ^^ Typo, should fail
+      Bar = Qux | Mutt
       Qux {}
       Mutt {}
    `)
-    ).toThrow("Cannot find '@Ba'")
+    ).toThrow("Cannot find 'Ba'")
   })
 
   it("thrown when there is an unused node def", () => {
@@ -110,9 +110,9 @@ describe("checking document validity", () => {
     expect(() =>
       parseGrammarFromString(`
       Foo { }
-      @Bar = Foo
+      Bar = Foo
    `)
-    ).toThrow("Unused definition '@Bar'")
+    ).toThrow("Unused definition 'Bar'")
   })
 
   it.skip("[todo later] thrown when there is a circular ref", () => {

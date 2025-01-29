@@ -11,13 +11,12 @@ function isBuiltInType(ref: AGNodeRef): ref is BuiltinType {
 
 type BuiltinType = { ref: "Raw"; name: string }
 
-// e.g. "MyNode" or "@MyUnion"
+// e.g. "MyNode"
 type AGNodeRef =
   | BuiltinType // e.g. `boolean`, or `string | boolean`
   | { ref: "Node"; name: string }
-  | { ref: "NodeUnion"; name: string }
 
-// e.g. "MyNode+" or "@MyUnion*"
+// e.g. "MyNode+"
 type AGRepeatedPattern =
   | AGNodeRef
   | {
@@ -26,7 +25,7 @@ type AGRepeatedPattern =
       min: 0 | 1
     }
 
-// e.g. "MyNode?" or "@MyUnion*?"
+// e.g. "MyNode?"
 type AGPattern =
   | AGRepeatedPattern
   | {
@@ -34,7 +33,7 @@ type AGPattern =
       of: AGRepeatedPattern
     }
 
-// e.g. ['FloatLiteral', 'IntLiteral', '@StringExpr']
+// e.g. ['FloatLiteral', 'IntLiteral', 'MyNode']
 type AGUnionDef = {
   name: string
   members: AGPattern[]
@@ -150,7 +149,7 @@ const grammar = ohm.grammar(String.raw`
         = nodename "{" AGField* "}"
 
       AGUnionDef
-        = "@" nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
+        = nodename "=" "|"? NonemptyListOf<AGNodeRef, "|">
 
       AGField
         = identifier "?"? ":" AGRepeatedPattern
@@ -161,7 +160,6 @@ const grammar = ohm.grammar(String.raw`
       AGNodeRef
         = BuiltinTypeUnion  -- builtin
         | nodename          -- node
-        | "@" nodename      -- union
 
       BuiltinTypeUnion
         = NonemptyListOf<BuiltinType, "|">
@@ -259,7 +257,7 @@ semantics.addAttribute<
     }
   },
 
-  AGUnionDef(_at, name, _eq, _pipe, memberList): AGUnionDef {
+  AGUnionDef(name, _eq, _pipe, memberList): AGUnionDef {
     return {
       name: name.ast as string,
       members: memberList.asIteration().children.map((m) => m.ast as AGPattern),
@@ -287,10 +285,6 @@ semantics.addAttribute<
     return { ref: "Node", name: nodename.ast as string }
   },
 
-  AGNodeRef_union(_at, nodename): AGNodeRef {
-    return { ref: "NodeUnion", name: nodename.ast as string }
-  },
-
   BuiltinTypeUnion(list): BuiltinType {
     return {
       ref: "Raw",
@@ -312,9 +306,6 @@ semantics.addOperation<ohm.Node[]>("allRefs", {
   AGNodeRef_node(_nodename) {
     return [this]
   },
-  AGNodeRef_union(_at, _nodename) {
-    return [this]
-  },
 })
 
 semantics.addOperation<undefined>("check", {
@@ -334,9 +325,7 @@ semantics.addOperation<undefined>("check", {
     }
 
     const validNames = new Set<string>()
-
-    const nodeDefs: AGNodeDef[] = []
-    const unionDefs: AGUnionDef[] = []
+    const defs: (AGNodeDef | AGUnionDef)[] = []
 
     // Do a pass over all defined nodes
     for (const def of defList.children) {
@@ -349,16 +338,11 @@ semantics.addOperation<undefined>("check", {
       }
 
       validNames.add(astNode.name)
-      if ("members" in astNode) {
-        unionDefs.push(astNode)
-      } else {
-        nodeDefs.push(astNode)
-      }
+      defs.push(astNode)
     }
 
     // Do a pass over all node references
-    const nodeNames = nodeDefs.map((d) => d.name)
-    const unionNames = unionDefs.map((d) => d.name)
+    const declaredNames = defs.map((d) => d.name)
 
     const unused = new Set(validNames)
 
@@ -369,20 +353,11 @@ semantics.addOperation<undefined>("check", {
       const nodeRef = ohmNode.ast as AGNodeRef
       unused.delete(nodeRef.name)
 
-      // Check that all MyNode refs are valid
+      // Check that all node refs are valid
       if (nodeRef.ref === "Node") {
-        if (!nodeNames.includes(nodeRef.name)) {
+        if (!declaredNames.includes(nodeRef.name)) {
           throw new Error(
             ohmNode.source.getLineAndColumnMessage() + `Cannot find '${nodeRef.name}'`
-          )
-        }
-      }
-
-      // Check that all @MyUnion refs are valid
-      if (nodeRef.ref === "NodeUnion") {
-        if (!unionNames.includes(nodeRef.name)) {
-          throw new Error(
-            ohmNode.source.getLineAndColumnMessage() + `Cannot find '@${nodeRef.name}'`
           )
         }
       }
@@ -393,8 +368,7 @@ semantics.addOperation<undefined>("check", {
       const name = first!
       const def = defList.children.find((def) => (def.ast as AGDef).name === name)!
       throw new Error(
-        def.children[0]!.source.getLineAndColumnMessage() +
-          `Unused definition '${"members" in (def.ast as AGDef) ? "@" : ""}${name}'`
+        def.children[0]!.source.getLineAndColumnMessage() + `Unused definition '${name}'`
       )
     }
   },
@@ -405,7 +379,7 @@ function lowercaseFirst(text: string): string {
 }
 
 /**
- * Given a NodeRef instance, returns its formatted string, e.g. "@MyNode*"
+ * Given a NodeRef instance, returns its formatted string, e.g. "MyNode*"
  */
 function serializeRef(pat: AGPattern): string {
   if (pat.ref === "Optional") {
@@ -417,8 +391,6 @@ function serializeRef(pat: AGPattern): string {
     } else {
       return base + "*"
     }
-  } else if (pat.ref === "NodeUnion") {
-    return "@" + pat.name
   } else if (pat.ref === "Node") {
     return pat.name
   } else {
@@ -439,14 +411,10 @@ function getBareRef(pat: AGPattern): string {
     ? getBareRef(pat.of)
     : pat.ref === "List"
       ? getBareRef(pat.of)
-      : pat.ref === "Node"
-        ? pat.name
-        : pat.ref === "NodeUnion"
-          ? pat.name
-          : pat.name
+      : pat.name
 }
 
-function getBareRefTarget(pat: AGPattern): "Node" | "NodeUnion" | "Raw" {
+function getBareRefTarget(pat: AGPattern): "Node" | "Raw" {
   return pat.ref === "Optional" || pat.ref === "List" ? getBareRefTarget(pat.of) : pat.ref
 }
 
@@ -556,7 +524,7 @@ function generateTypeCheckCondition(
     conditions.push(
       `${actualValue}.every(item => ${generateTypeCheckCondition(expected.of, "item", discriminator)})`
     )
-  } else if (expected.ref === "Node" || expected.ref === "NodeUnion") {
+  } else if (expected.ref === "Node") {
     conditions.push(`is${expected.name}(${actualValue})`)
   } else if (isBuiltInType(expected)) {
     conditions.push(
@@ -1066,7 +1034,6 @@ function generateCode(grammar: AGGrammar): string {
     for (const field of fields) {
       switch (field.pattern.ref) {
         case "Node":
-        case "NodeUnion":
           output.push(`  yield node.${field.name} as ChildrenOf<N>`)
           break
 

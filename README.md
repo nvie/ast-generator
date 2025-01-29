@@ -35,10 +35,10 @@ The following grammar definition (in a file called `ast.grammar`) describes thre
 
 Document {
   version?: number
-  shapes: @Shape*
+  shapes: Shape*
 }
 
-@Shape =
+Shape =
   | Circle
   | Rect
 
@@ -198,7 +198,7 @@ semantic method check()
 
 Document {
   version?: number
-  shapes: @Shape*
+  shapes: Shape*
 }
 
 // etc

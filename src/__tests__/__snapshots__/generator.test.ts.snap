@@ -71,7 +71,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "name": "y0",
           "pattern": {
             "name": "Xyz",
-            "ref": "NodeUnion",
+            "ref": "Node",
           },
         },
         {
@@ -80,7 +80,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 0,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -91,7 +91,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 1,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -101,7 +101,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -111,7 +111,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -200,7 +200,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "name": "y0",
           "pattern": {
             "name": "Xyz",
-            "ref": "NodeUnion",
+            "ref": "Node",
           },
         },
         "y1": {
@@ -209,7 +209,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 0,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -220,7 +220,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 1,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -230,7 +230,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -240,7 +240,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -382,7 +382,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "name": "y0",
           "pattern": {
             "name": "Xyz",
-            "ref": "NodeUnion",
+            "ref": "Node",
           },
         },
         {
@@ -391,7 +391,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 0,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -402,7 +402,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 1,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -412,7 +412,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -422,7 +422,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -511,7 +511,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "name": "y0",
           "pattern": {
             "name": "Xyz",
-            "ref": "NodeUnion",
+            "ref": "Node",
           },
         },
         "y1": {
@@ -520,7 +520,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 0,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -531,7 +531,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "min": 1,
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "List",
           },
@@ -541,7 +541,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },
@@ -551,7 +551,7 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "of": {
               "name": "Xyz",
-              "ref": "NodeUnion",
+              "ref": "Node",
             },
             "ref": "Optional",
           },

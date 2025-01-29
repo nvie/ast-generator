@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- Node unions no longer have to be written using `@` syntax.
+
 ## [0.4.0] - 2025-01-29
 
 - Every Node now has generated `.children` and `.descendants` iterator properties, which
