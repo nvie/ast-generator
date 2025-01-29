@@ -36,7 +36,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "string",
+              {
+                "kind": "TSNativeType",
+                "typeName": "string",
+              },
             ],
           },
         },
@@ -49,7 +52,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -63,7 +69,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -76,7 +85,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -186,7 +198,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "string",
+              {
+                "kind": "TSNativeType",
+                "typeName": "string",
+              },
             ],
           },
         },
@@ -199,7 +214,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -213,7 +231,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -226,7 +247,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -342,7 +366,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "number",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "number",
+                },
               ],
             },
           },
@@ -357,7 +384,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "number",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "number",
+                },
               ],
             },
           },
@@ -374,20 +404,150 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "number",
+              {
+                "kind": "TSNativeType",
+                "typeName": "number",
+              },
             ],
+          },
+        },
+        {
+          "kind": "Field",
+          "name": "op",
+          "pattern": {
+            "kind": "BuiltinTS",
+            "types": [
+              {
+                "constant": ">",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": ">=",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<=",
+                "kind": "TSLiteralType",
+              },
+            ],
+          },
+        },
+        {
+          "kind": "Field",
+          "name": "version",
+          "pattern": {
+            "kind": "Optional",
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
+          },
+        },
+        {
+          "kind": "Field",
+          "name": "bits",
+          "pattern": {
+            "kind": "List",
+            "min": 0,
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 0,
+                  "kind": "TSLiteralType",
+                },
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
           },
         },
       ],
       "fieldsByName": {
+        "bits": {
+          "kind": "Field",
+          "name": "bits",
+          "pattern": {
+            "kind": "List",
+            "min": 0,
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 0,
+                  "kind": "TSLiteralType",
+                },
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
+          },
+        },
+        "op": {
+          "kind": "Field",
+          "name": "op",
+          "pattern": {
+            "kind": "BuiltinTS",
+            "types": [
+              {
+                "constant": ">",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": ">=",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<=",
+                "kind": "TSLiteralType",
+              },
+            ],
+          },
+        },
         "s": {
           "kind": "Field",
           "name": "s",
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "number",
+              {
+                "kind": "TSNativeType",
+                "typeName": "number",
+              },
             ],
+          },
+        },
+        "version": {
+          "kind": "Field",
+          "name": "version",
+          "pattern": {
+            "kind": "Optional",
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
           },
         },
       },
@@ -404,7 +564,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "string",
+              {
+                "kind": "TSNativeType",
+                "typeName": "string",
+              },
             ],
           },
         },
@@ -417,7 +580,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -431,7 +597,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -444,7 +613,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -554,7 +726,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "string",
+              {
+                "kind": "TSNativeType",
+                "typeName": "string",
+              },
             ],
           },
         },
@@ -567,7 +742,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -581,7 +759,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -594,7 +775,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "string",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "string",
+                },
               ],
             },
           },
@@ -710,7 +894,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "number",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "number",
+                },
               ],
             },
           },
@@ -725,7 +912,10 @@ exports[`parsing grammars > parses a grammar 1`] = `
             "of": {
               "kind": "BuiltinTS",
               "types": [
-                "number",
+                {
+                  "kind": "TSNativeType",
+                  "typeName": "number",
+                },
               ],
             },
           },
@@ -742,20 +932,150 @@ exports[`parsing grammars > parses a grammar 1`] = `
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "number",
+              {
+                "kind": "TSNativeType",
+                "typeName": "number",
+              },
             ],
+          },
+        },
+        {
+          "kind": "Field",
+          "name": "op",
+          "pattern": {
+            "kind": "BuiltinTS",
+            "types": [
+              {
+                "constant": ">",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": ">=",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<=",
+                "kind": "TSLiteralType",
+              },
+            ],
+          },
+        },
+        {
+          "kind": "Field",
+          "name": "version",
+          "pattern": {
+            "kind": "Optional",
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
+          },
+        },
+        {
+          "kind": "Field",
+          "name": "bits",
+          "pattern": {
+            "kind": "List",
+            "min": 0,
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 0,
+                  "kind": "TSLiteralType",
+                },
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
           },
         },
       ],
       "fieldsByName": {
+        "bits": {
+          "kind": "Field",
+          "name": "bits",
+          "pattern": {
+            "kind": "List",
+            "min": 0,
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 0,
+                  "kind": "TSLiteralType",
+                },
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
+          },
+        },
+        "op": {
+          "kind": "Field",
+          "name": "op",
+          "pattern": {
+            "kind": "BuiltinTS",
+            "types": [
+              {
+                "constant": ">",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": ">=",
+                "kind": "TSLiteralType",
+              },
+              {
+                "constant": "<=",
+                "kind": "TSLiteralType",
+              },
+            ],
+          },
+        },
         "s": {
           "kind": "Field",
           "name": "s",
           "pattern": {
             "kind": "BuiltinTS",
             "types": [
-              "number",
+              {
+                "kind": "TSNativeType",
+                "typeName": "number",
+              },
             ],
+          },
+        },
+        "version": {
+          "kind": "Field",
+          "name": "version",
+          "pattern": {
+            "kind": "Optional",
+            "of": {
+              "kind": "BuiltinTS",
+              "types": [
+                {
+                  "constant": 1,
+                  "kind": "TSLiteralType",
+                },
+              ],
+            },
           },
         },
       },
