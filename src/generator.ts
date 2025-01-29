@@ -1093,9 +1093,16 @@ function generateCode(grammar: AGGrammar): string {
 
   output.push(`
     function* iterDescendants<N extends Node>(node: N): IterableIterator<DescendantsOf<N>> {
-      for (const child of iterChildren(node)) {
-        yield child
-        yield *iterDescendants(child)
+      // Perform breadth-first traversal, not depth-first
+      const queue: Node[] = [node]
+      while (true) {
+        const current = queue.shift()
+        if (current === undefined) break;  // Done
+
+        yield current as DescendantsOf<N>
+        for (const child of iterChildren(current)) {
+          queue.push(child)
+        }
       }
     }
   `)
