@@ -289,7 +289,7 @@ semantics.addAttribute<
     return {
       kind: "UnionDef",
       name: name.ast as string,
-      members: memberList.asIteration().children.map((m) => m.ast as TypeRef),
+      members: memberList.asIteration().children.map((m) => m.ast as NodeRef),
     }
   },
 
