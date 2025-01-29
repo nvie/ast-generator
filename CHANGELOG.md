@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+- **Breaking** Node unions no longer have to be written using `@MyUnion` syntax. This is
+  now "just" `MyUnion`. The definition itself determines whether it's a union or a basic
+  node.
+
 ## [0.4.0] - 2025-01-29
 
 - Every Node now has generated `.children` and `.descendants` iterator properties, which
