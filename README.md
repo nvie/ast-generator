@@ -156,7 +156,9 @@ To change the default discriminator field on all nodes:
 
 ```ts
 // In ast.grammar
-set discriminator "_kind"
+settings {
+  discriminator = "_kind"
+}
 ```
 
 This would produce the node types as:
@@ -178,9 +180,10 @@ export type Circle = {
 
 You can use the following settings to configure the generated output:
 
-| Setting         | Default Value | Description                                                            |
-| --------------- | ------------- | ---------------------------------------------------------------------- |
-| `discriminator` | `"type"`      | The discriminating field added to every node to identify its node type |
+| Setting         | Default Value        | Description                                                            |
+| --------------- | -------------------- | ---------------------------------------------------------------------- |
+| `output`        | `"generated-ast.ts"` | Where to write the generated output to (relative to the grammar file)  |
+| `discriminator` | `"type"`             | The discriminating field added to every node to identify its node type |
 
 ## Assigning semantic meaning to nodes
 

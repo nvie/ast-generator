@@ -15,18 +15,16 @@ async function main() {
   const cmd = new Command("generate-ast")
     .description("Generate a TypeScript module for the AST defined in the grammar")
     .argument("<infile>", "Source grammar (*.grammar)")
-    .argument("<outfile>", "Output file (*.ts)")
     .parse(process.argv)
 
   const infile = cmd.args[0]
-  const outfile = cmd.args[1]
-  if (!infile || !outfile) {
+  if (!infile) {
     cmd.help()
-    process.exit(0)
+    process.exit(2)
   }
 
   // Run compiler
-  await generateAST(infile, outfile)
+  await generateAST(infile)
 }
 
 main()
