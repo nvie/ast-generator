@@ -1,7 +1,17 @@
 ## [Unreleased]
 
-- Put settings in a new `settings` block
-- Add understood settings `discriminator`, and `output`
+- **Breaking** Put settings in a new `settings` block, i.e.
+  ```
+  settings {
+    output = "../gen-here-plz.ts"
+  }
+  ```
+  instead of the old (no longer supported):
+  ```
+  set output "../gen-here-plz.ts"
+  ```
+- Add understood settings `discriminator`, and `output` for now. More settings will be
+  added later.
 - Generate to `generated-ast.ts` by default, but allow specifying it through
   `output = "../somewhere-else.ts"`
 - No longer support passing output file as a CLI argument
