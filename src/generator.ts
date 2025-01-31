@@ -134,7 +134,7 @@ export function partition<T>(it: Iterable<T>, pred: (x: T) => boolean): [T[], T[
 
 const grammar = ohm.grammar(String.raw`
     AstGeneratorGrammar {
-      Start = Settings SemanticDeclaration* Def+
+      Start = Settings? SemanticDeclaration* Def+
 
       // Override Ohm's built-in definition of space
       space := "\u0000".." " | comment
@@ -215,6 +215,12 @@ const grammar = ohm.grammar(String.raw`
 
 const semantics = grammar.createSemantics()
 
+const EMPTY_SETTINGS: Settings = {
+  kind: "Settings",
+  assignments: [],
+  record: {},
+}
+
 semantics.addAttribute<
   | Grammar
   | Settings
@@ -235,7 +241,8 @@ semantics.addAttribute<
 
   Start(settingsBlock, externalsList, defList): Grammar {
     // Settings
-    const settings = settingsBlock.ast as Settings
+    const settings =
+      (settingsBlock.child(0)?.ast as Settings | undefined) ?? EMPTY_SETTINGS
     const externals = externalsList.children.map((e) => e.ast as SemanticDeclaration)
 
     const discriminator = settings.record.discriminator ?? "type"
@@ -413,7 +420,7 @@ semantics.addOperation<undefined>("check", {
   },
 
   Start(settings, externalDecls, defList): undefined {
-    ;(settings.check as () => undefined)()
+    ;(settings.child(0)?.check as (() => void) | undefined)?.()
 
     {
       const seen = new Set()

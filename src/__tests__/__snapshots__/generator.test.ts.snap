@@ -1083,6 +1083,11 @@ exports[`parsing grammars > parses a grammar 1`] = `
       "name": "Stu",
     },
   },
+  "settings": {
+    "assignments": [],
+    "kind": "Settings",
+    "record": {},
+  },
   "startNode": "Abc",
   "unionDefinitions": [
     {
