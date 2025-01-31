@@ -421,6 +421,7 @@ semantics.addOperation<undefined>("check", {
   },
 
   Start(settings, externalDecls, defList): undefined {
+    // This is literally the worst way to write `settings?.check()` ever
     ;((settings.child(0) as ohm.Node | undefined)?.check as (() => void) | undefined)?.()
 
     {
