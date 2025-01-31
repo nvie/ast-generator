@@ -1,5 +1,6 @@
 import fs from "fs"
 import * as ohm from "ohm-js"
+import pathLib from "path"
 import prettier from "prettier"
 import invariant from "tiny-invariant"
 
@@ -70,7 +71,9 @@ type Field = {
 
 type Grammar = {
   kind: "Grammar"
+  settings: Settings
   discriminator: string
+
   externals: SemanticDeclaration[]
   startNode: string
 
@@ -85,8 +88,12 @@ type Grammar = {
   isUnionRef(ref: TypeRef): boolean
 }
 
-type Setting = SemanticDeclaration | SetStatement
-type SetStatement = { kind: "SetStatement"; type: "set"; key: string; value: string }
+type Settings = {
+  kind: "Settings"
+  assignments: Assignment[]
+  record: Record<string, string>
+}
+type Assignment = { kind: "Assignment"; key: string; value: string }
 type SemanticDeclaration = SemanticPropertyDeclaration | SemanticMethodDeclaration
 type SemanticPropertyDeclaration = { type: "property"; name: string }
 type SemanticMethodDeclaration = { type: "method"; name: string }
@@ -127,7 +134,7 @@ export function partition<T>(it: Iterable<T>, pred: (x: T) => boolean): [T[], T[
 
 const grammar = ohm.grammar(String.raw`
     AstGeneratorGrammar {
-      Start = Setting* Def+
+      Start = Settings? SemanticDeclaration* Def+
 
       // Override Ohm's built-in definition of space
       space := "\u0000".." " | comment
@@ -143,18 +150,16 @@ const grammar = ohm.grammar(String.raw`
         | ~"\"" ~"\n" any  -- content
 
       // Keywords
-      keyword  = semantic | property | method | set
+      keyword  = settings | semantic | property | method
+      settings = "settings" ~wordchar
       semantic = "semantic" ~wordchar
       property = "property" ~wordchar
       method   = "method" ~wordchar
-      set      = "set" ~wordchar
 
-      Setting
-        = SetStatement
-        | SemanticDeclaration
+      Settings = settings "{" Assignment* "}"
 
-      SetStatement
-        = set "discriminator" stringLiteral
+      Assignment
+        = identifier "=" stringLiteral
 
       SemanticDeclaration
         = SemanticPropertyDeclaration
@@ -210,9 +215,16 @@ const grammar = ohm.grammar(String.raw`
 
 const semantics = grammar.createSemantics()
 
+const EMPTY_SETTINGS: Settings = {
+  kind: "Settings",
+  assignments: [],
+  record: {},
+}
+
 semantics.addAttribute<
   | Grammar
-  | Setting
+  | Settings
+  | Assignment
   | SemanticDeclaration
   | NodeDef
   | UnionDef
@@ -227,15 +239,14 @@ semantics.addAttribute<
   nodename(_upper, _wordchar): string { return this.sourceString }, // prettier-ignore
   identifier(_letter, _wordchar): string { return this.sourceString }, // prettier-ignore
 
-  Start(settingList, defList): Grammar {
+  Start(settingsBlock, externalsList, defList): Grammar {
     // Settings
-    const statements = settingList.children.map((d) => d.ast as Setting)
-    const [settings, externals] = partition(
-      statements,
-      (s): s is SetStatement => s.type === "set"
-    )
+    const settings =
+      ((settingsBlock.child(0) as ohm.Node | undefined)?.ast as Settings | undefined) ??
+      EMPTY_SETTINGS
+    const externals = externalsList.children.map((e) => e.ast as SemanticDeclaration)
 
-    const discriminator = settings.find((s) => s.key === "discriminator")?.value ?? "type"
+    const discriminator = settings.record.discriminator ?? "type"
 
     // Node definitions
     const defs = defList.children.map((d) => d.ast as Def)
@@ -252,6 +263,7 @@ semantics.addAttribute<
 
     return {
       kind: "Grammar",
+      settings,
 
       // The first-defined node in the document is the start node
       startNode: Object.keys(nodeDefsByName)[0]!,
@@ -283,10 +295,19 @@ semantics.addAttribute<
     return { type: "method", name: identifier.ast as string }
   },
 
-  SetStatement(_set, settingName, quotedName): SetStatement {
+  Settings(_kw, _lb, assignmentList, _rb): Settings {
+    const assignments = assignmentList.children.map((a) => a.ast as Assignment)
+    const record = Object.fromEntries(assignments.map((a) => [a.key, a.value]))
     return {
-      kind: "SetStatement",
-      type: "set",
+      kind: "Settings",
+      assignments,
+      record,
+    }
+  },
+
+  Assignment(settingName, _eq, quotedName): Assignment {
+    return {
+      kind: "Assignment",
       key: settingName.sourceString,
       value: quotedName.ast as string,
     }
@@ -384,8 +405,24 @@ semantics.addOperation<ohm.Node[]>("allRefs", {
   },
 })
 
+const KNOWN_SETTINGS = ["output", "discriminator"]
+
 semantics.addOperation<undefined>("check", {
-  Start(externalDecls, defList): undefined {
+  Settings(_kw, _lb, assignmentList, _rb): undefined {
+    for (const assignmentNode of assignmentList.children) {
+      const { key } = assignmentNode.ast as Assignment
+      if (!KNOWN_SETTINGS.includes(key)) {
+        throw new Error(
+          assignmentNode.child(0).source.getLineAndColumnMessage() +
+            `Unknown setting '${key}'. Supported settings are: ${KNOWN_SETTINGS.map((s) => `'${s}'`).join(", ")}`
+        )
+      }
+    }
+  },
+
+  Start(settings, externalDecls, defList): undefined {
+    ;((settings.child(0) as ohm.Node | undefined)?.check as (() => void) | undefined)?.()
+
     {
       const seen = new Set()
       for (const decl of externalDecls.children) {
@@ -1179,9 +1216,13 @@ function writeFile(contents: string, path: string) {
   }
 }
 
-export async function generateAST(inpath: string, outpath: string): Promise<void> {
+export async function generateAST(inpath: string): Promise<void> {
   const grammar = parseGrammarFromPath(inpath)
   const uglyCode = generateCode(grammar)
+
+  // Output file is relative. Generated it relative to the inpath
+  const output = grammar.settings.record.output ?? "generated-ast.ts"
+  const outpath = pathLib.join(pathLib.dirname(inpath), output)
 
   // Beautify it with prettier
   const config = await prettier.resolveConfig(outpath)

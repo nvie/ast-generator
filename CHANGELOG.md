@@ -1,5 +1,11 @@
 ## [Unreleased]
 
+- Put settings in a new `settings` block
+- Add understood settings `discriminator`, and `output`
+- Generate to `generated-ast.ts` by default, but allow specifying it through
+  `output = "../somewhere-else.ts"`
+- No longer support passing output file as a CLI argument
+
 ## [0.5.0] - 2025-01-30
 
 - **Breaking** Node unions no longer have to be written using `@MyUnion` syntax. This is
