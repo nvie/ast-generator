@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.6.0] - 2025-01-31
+
 - **Breaking** Put settings in a new `settings` block, i.e.
   ```
   settings {
