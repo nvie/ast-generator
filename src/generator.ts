@@ -242,7 +242,8 @@ semantics.addAttribute<
   Start(settingsBlock, externalsList, defList): Grammar {
     // Settings
     const settings =
-      (settingsBlock.child(0)?.ast as Settings | undefined) ?? EMPTY_SETTINGS
+      ((settingsBlock.child(0) as ohm.Node | undefined)?.ast as Settings | undefined) ??
+      EMPTY_SETTINGS
     const externals = externalsList.children.map((e) => e.ast as SemanticDeclaration)
 
     const discriminator = settings.record.discriminator ?? "type"
@@ -420,7 +421,7 @@ semantics.addOperation<undefined>("check", {
   },
 
   Start(settings, externalDecls, defList): undefined {
-    ;(settings.child(0)?.check as (() => void) | undefined)?.()
+    ;((settings.child(0) as ohm.Node | undefined)?.check as (() => void) | undefined)?.()
 
     {
       const seen = new Set()
