@@ -37,3 +37,6 @@ jobs:
 
       - name: Lints
         run: npm run lint
+
+      - name: Lint packaging
+        run: npm run lint:package
