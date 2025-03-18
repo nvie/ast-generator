@@ -42,7 +42,7 @@
     "eslint": "^9.19.0",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-simple-import-sort": "^12.1.1",
-    "pkg-pr-new": "^0.0.39",
+    "pkg-pr-new": "^0.0.41",
     "publint": "^0.3.3",
     "release-it": "^18.1.2",
     "tsup": "^8.3.6",
