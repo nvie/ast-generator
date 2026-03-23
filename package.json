@@ -50,7 +50,7 @@
     "vitest": "^3.0.9"
   },
   "peerDependencies": {
-    "commander": "^13",
+    "commander": "*",
     "ohm-js": "^17",
     "prettier": "^3",
     "tiny-invariant": "^1",
