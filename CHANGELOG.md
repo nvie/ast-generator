@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+## [0.6.1] - 2026-03-23
+
 - Relax commander peer dependency to accept any version
 
 ## [0.6.0] - 2025-01-31
