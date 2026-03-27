@@ -36,7 +36,7 @@
   ],
   "devDependencies": {
     "@eslint/js": "^9.23.0",
-    "@release-it/keep-a-changelog": "^6.0.0",
+    "@release-it/keep-a-changelog": "^7.0.0",
     "@types/node": "^22.13.13",
     "@vitest/coverage-istanbul": "^3.0.9",
     "eslint": "^9.23.0",
